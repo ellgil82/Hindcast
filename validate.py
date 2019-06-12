@@ -38,31 +38,41 @@ elif host == 'bsl':
     filepath = '/data/mac/ellgil82/hindcast/'
 
 ## Load data
-def load_vars(year):
-    Tair = iris.load_cube( filepath + 'output/'+year+'_Tair_1p5m_daymn.nc', 'air_temperature')
+def load_vars(year, mn):
+    if mn == 'yes':
+        Tair = iris.load_cube( filepath + 'output/'+year+'_Tair_1p5m_daymn.nc', 'air_temperature')
+        Ts = iris.load_cube( filepath + 'output/'+year+'_Ts_daymn.nc', 'surface_temperature')
+        MSLP = iris.load_cube( filepath + 'output/'+year+'_MSLP_daymn.nc', 'air_pressure_at_sea_level')
+        sfc_P = iris.load_cube(filepath + 'output/' + year + '_sfc_P_daymn.nc', 'surface_air_pressure')
+        FF_10m = iris.load_cube( filepath + 'output/'+year+'_FF_10m_daymn.nc', 'wind_speed')
+        RH = iris.load_cube(filepath + 'output/' + year + '_RH_1p5m_daymn.nc', 'relative_humidity')
+        u = iris.load_cube(filepath + 'output/' + year + '_u_10m_daymn.nc', 'x wind component (with respect to grid)')
+        v = iris.load_cube(filepath + 'output/' + year + '_v_10m_daymn.nc', 'y wind component (with respect to grid)')
+    else:
+        Tair = iris.load_cube( filepath + 'output/'+year+'_Tair_1p5m.nc', 'air_temperature')
+        Ts = iris.load_cube( filepath + 'output/'+year+'_Ts.nc', 'surface_temperature')
+        MSLP = iris.load_cube( filepath + 'output/'+year+'_MSLP.nc', 'air_pressure_at_sea_level')
+        sfc_P = iris.load_cube(filepath + 'output/' + year + '_sfc_P.nc', 'surface_air_pressure')
+        FF_10m = iris.load_cube( filepath + 'output/'+year+'_FF_10m.nc', 'wind_speed')
+        RH = iris.load_cube(filepath + 'output/' + year + '_RH_1p5m.nc', 'relative_humidity')
+        u = iris.load_cube(filepath + 'output/' + year + '_u_10m.nc', 'x wind component (with respect to grid)')
+        v = iris.load_cube(filepath + 'output/' + year + '_v_10m.nc', 'y wind component (with respect to grid)')
     Tair.convert_units('celsius')
-    Ts = iris.load_cube( filepath + 'output/'+year+'_Ts_daymn.nc', 'surface_temperature')
     Ts.convert_units('celsius')
-    MSLP = iris.load_cube( filepath + 'output/'+year+'_MSLP_daymn.nc', 'air_pressure_at_sea_level')
     MSLP.convert_units('hPa')
-    sfc_P = iris.load_cube( filepath + 'output/'+year+'_sfc_P_daymn.nc', 'surface_air_pressure')
     sfc_P.convert_units('hPa')
-    FF_10m = iris.load_cube( filepath + 'output/'+year+'_FF_10m_daymn.nc', 'wind_speed')
     FF_10m = FF_10m[:,:,1:,:]
-    RH = iris.load_cube( filepath + 'output/'+year+'_RH_1p5m_daymn.nc', 'relative_humidity')
-    u = iris.load_cube( filepath + 'output/'+year+'_u_10m_daymn.nc', 'x wind component (with respect to grid)')
-    v = iris.load_cube( filepath + 'output/'+year+'_v_10m_daymn.nc', 'y wind component (with respect to grid)')
     v = v[:,:,1:,:]
     var_list = [Tair, Ts, MSLP, sfc_P, FF_10m, RH, u, v]
     for i in var_list:
         real_lon, real_lat = rotate_data(i, 2, 3)
     WD = metpy.calc.wind_direction(u = u.data, v = v.data)
     WD = iris.cube.Cube(data = WD, standard_name='wind_from_direction')
-    var_dict = {'Tair': Tair[:,0,:,:], 'Ts': Ts[:,0,:,:], 'MSLP': MSLP[:,0,:,:], 'sfc_P': sfc_P[:,0,:,:], 'FF_10m': FF_10m[:,0,:,:], 'RH': RH[:,0,:,:], 'WD': WD[:,0,:,:], 'lon': real_lon, 'lat': real_lat, 'year': year}
-    return var_dict
+    vars_yr = {'Tair': Tair[:,0,:,:], 'Ts': Ts[:,0,:,:], 'MSLP': MSLP[:,0,:,:], 'sfc_P': sfc_P[:,0,:,:], 'FF_10m': FF_10m[:,0,:,:], 'RH': RH[:,0,:,:], 'WD': WD[:,0,:,:], 'lon': real_lon, 'lat': real_lat, 'year': year}
+    return vars_yr
 
-vars_2012 = load_vars('2012')
-vars_2014 = load_vars('2014')
+vars_2012 = load_vars('2012', mn = 'no')
+vars_2014 = load_vars('2014', mn = 'no')
 #vars_2016 = load_vars('2016')
 #vars_2017 = load_vars('2017')
 
@@ -111,6 +121,8 @@ def load_AWS(station, year):
     return case
 
 AWS14_SEB = load_AWS('AWS14_SEB_2009-2017_norp', '2014')
+#AWS15_SEB = load_AWS('AWS15_hourly_2009-2014.csv', '2014')
+AWS17_SEB = load_AWS('AWS17_SEB_2011-2015_norp', '2014')
 
 # Find locations of AWSs
 lon_index14, lat_index14 = find_gridbox(-67.01, -61.03, vars_2014['lat'], vars_2014['lon'])
@@ -136,6 +148,10 @@ lon_dict = {'AWS14': lon_index14,
             'AWS15': lon_index15,
             'AWS17': lon_index17,
             'AWS18': lon_index18}
+
+station_dict = {'AWS14_SEB_2009-2017_norp': 'AWS14',
+             'AWS15_hourly_2009-2014.csv': 'AWS15',
+              'AWS17_SEB_2011-2015_norp': 'AWS17'  }
 
 def seas_mean(year_list, location):
     for each_year in year_list:
@@ -179,19 +195,19 @@ def seas_mean(year_list, location):
 
 #seas_means, seas_vals = seas_mean(['2014'], 'AWS14')
 
-def calc_bias(year):
+def calc_bias(year, station):
     # Calculate bias of time series
     # Forecast error
-    AWS_var = load_AWS('AWS14_SEB_2009-2017_norp', year)
+    AWS_var = load_AWS(station, year)
     AWS_var = AWS_var[::3]
-    vars_yr = load_vars(year)
+    vars_yr = load_vars(year, mn = 'no')
     surf_met_obs = [AWS_var['Tsobs'], AWS_var['Tair_2m'], AWS_var['RH'], AWS_var['FF_10m'], AWS_var['pres'], AWS_var['WD']]
-    surf_mod = [np.mean(vars_yr['Ts'].data[:, lon_index14-1:lon_index14+1, lat_index14-1:lat_index14+1], axis = (1,2)),
-                np.mean(vars_yr['Tair'].data[:, lon_index14-1:lon_index14+1, lat_index14-1:lat_index14+1], axis = (1,2)),
-                np.mean(vars_yr['RH'].data[:, lon_index14-1:lon_index14+1, lat_index14-1:lat_index14+1], axis = (1,2)),
-                np.mean(vars_yr['FF_10m'].data[:, lon_index14-1:lon_index14+1, lat_index14-1:lat_index14+1], axis = (1,2)),
-                np.mean(vars_yr['sfc_P'].data[:, lon_index14-1:lon_index14+1, lat_index14-1:lat_index14+1], axis = (1,2)),
-                np.mean(vars_yr['WD'][:, lon_index14-1:lon_index14+1, lat_index14-1:lat_index14+1], axis = (1,2)),]
+    surf_mod = [np.mean(vars_yr['Ts'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                np.mean(vars_yr['Tair'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1],axis = (1,2)),
+                np.mean(vars_yr['RH'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                np.mean(vars_yr['FF_10m'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                np.mean(vars_yr['sfc_P'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                np.mean(vars_yr['WD'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2))]
     mean_obs = []
     mean_mod = []
     bias = []
@@ -222,10 +238,11 @@ def calc_bias(year):
         print(idx[i])
         print('\nr2 = %s\n' % r2)
     print('RMSE/bias = \n\n\n')
-    df.to_csv('/data/mac/ellgil82/hindcast/'+ year +'_bias_RMSE.csv') # change to be station-specific
+    df.to_csv('/data/mac/ellgil82/hindcast/'+ year + '_' + station_dict[station] + '_bias_RMSE.csv') # change to be station-specific
     print(df)
 
-#calc_bias('2016')
+calc_bias('2014', station = 'AWS14_SEB_2009-2017_norp')
+calc_bias('2012', station = 'AWS14_SEB_2009-2017_norp')
 
 def remove_diurnal_cyc(input_var):
     if input_var.ndim >= 2:
@@ -324,12 +341,12 @@ def plot_diurnal(var, domain):
         diur_LWup = iris.load_cube('diurnal_LWup.nc', 'surface_net_downward_longwave_flux')
         diur_HL =iris.load_cube('diurnal_HL.nc', 'Latent heat flux')
         diur_HS = iris.load_cube('diurnal_HS.nc', 'surface_upward_sensible_heat_flux')
-        var_dict = {'SWdown': diur_SWdown, 'SWnet': diur_SWnet, 'SWup': diur_SWup, 'LWdown': diur_LWdown, 'LWnet': diur_LWnet, 'LWup': diur_LWup, 'HL': diur_HL, 'HS':  diur_HS}
+        vars_yr = {'SWdown': diur_SWdown, 'SWnet': diur_SWnet, 'SWup': diur_SWup, 'LWdown': diur_LWdown, 'LWnet': diur_LWnet, 'LWup': diur_LWup, 'HL': diur_HL, 'HS':  diur_HS}
         colour_dict = {'SWdown': '#6fb0d2', 'SWnet': '#6fb0d2', 'SWup': '#6fb0d2', 'LWdown': '#86ad63', 'LWnet': '#86ad63', 'LWup': '#86ad63','HL': '#33a02c', 'HS': '#1f78b4'}
         UTC_3 = pd.DataFrame()
-        for x in var_dict:
-            UTC_3[x] = np.concatenate((np.mean(var_dict[x][5:, 0, 199:201, 199:201].data, axis=(1, 2)),
-                                       np.mean(var_dict[x][:5, 0, 199:201, 199:201].data, axis=(1, 2))), axis=0)
+        for x in vars_yr:
+            UTC_3[x] = np.concatenate((np.mean(vars_yr[x][5:, 0, 199:201, 199:201].data, axis=(1, 2)),
+                                       np.mean(vars_yr[x][:5, 0, 199:201, 199:201].data, axis=(1, 2))), axis=0)
     elif var == 'met':
         diur_Ts = iris.load_cube('diurnal_Ts.nc','surface_temperature')
         diur_Tair = iris.load_cube('diurnal_Tair.nc', 'air_temperature')
@@ -341,7 +358,7 @@ def plot_diurnal(var, domain):
         real_lon, real_lat = rotate_data(diur_v, 2, 3)
         real_lon, real_lat = rotate_data(diur_u, 2, 3)
         diur_q = iris.load_cube('diurnal_q.nc', 'specific_humidity')
-        var_dict = {'Ts': diur_Ts, 'Tair': diur_Tair, 'u': diur_u, 'v': diur_v,'q': diur_q}
+        vars_yr = {'Ts': diur_Ts, 'Tair': diur_Tair, 'u': diur_u, 'v': diur_v,'q': diur_q}
         colour_dict = {'Ts': '#dd1c77', 'Tair': '#91003f', 'ff': '#238b45', 'q': '#2171b5'}
         if domain == 'ice shelf' or domain == 'Larsen C':
             # Create Larsen mask
@@ -351,23 +368,23 @@ def plot_diurnal(var, domain):
             Larsen_mask[orog.data > 25] = 0
             Larsen_mask = np.logical_not(Larsen_mask)
             UTC_3 = pd.DataFrame()
-            for x in var_dict:
-                UTC_3[x] = np.ma.concatenate((np.ma.masked_array(var_dict[x][5:, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, var_dict[x][5:, 0, :, :].shape)).mean(axis=(1, 2)),
-                                              np.ma.masked_array(var_dict[x][:5, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, var_dict[x][:5, 0, :, :].shape)).mean(axis=(1, 2))), axis=0)
+            for x in vars_yr:
+                UTC_3[x] = np.ma.concatenate((np.ma.masked_array(vars_yr[x][5:, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, vars_yr[x][5:, 0, :, :].shape)).mean(axis=(1, 2)),
+                                              np.ma.masked_array(vars_yr[x][:5, 0, :, :].data, mask=np.broadcast_to(Larsen_mask, vars_yr[x][:5, 0, :, :].shape)).mean(axis=(1, 2))), axis=0)
         elif domain == 'AWS 14' or domain == 'AWS14':
             UTC_3 = pd.DataFrame()
-            diur_ff = iris.cube.Cube(data = np.sqrt(var_dict['v'].data**2)+(var_dict['u'].data**2))
+            diur_ff = iris.cube.Cube(data = np.sqrt(vars_yr['v'].data**2)+(vars_yr['u'].data**2))
             UTC_3['ff'] = np.concatenate((np.mean(diur_ff[5:, 0, 199:201, 199:201].data, axis=(1, 2)),
                                        np.mean(diur_ff[:5, 0, 199:201, 199:201].data, axis=(1, 2))), axis=0)
-            for x in var_dict:
-                UTC_3[x] = np.concatenate((np.mean(var_dict[x][5:, 0, 199:201, 199:201], axis=(1, 2)),
-                                           np.mean(var_dict[x][:5, 0, 199:201, 199:201], axis=(1, 2))), axis=0)
+            for x in vars_yr:
+                UTC_3[x] = np.concatenate((np.mean(vars_yr[x][5:, 0, 199:201, 199:201], axis=(1, 2)),
+                                           np.mean(vars_yr[x][:5, 0, 199:201, 199:201], axis=(1, 2))), axis=0)
         elif domain == 'AWS 15' or domain == 'AWS15':
             UTC_3 = pd.DataFrame()
-            for x in var_dict:
-                UTC_3[x] = np.concatenate((np.mean(var_dict[x][5:, 0, 161:163, 182:184].data, axis=(1, 2)),
-                                           np.mean(var_dict[x][:5, 0, 161:163, 182:184].data, axis=(1, 2))), axis=0)
-            diur_ff = iris.cube.Cube(data=np.sqrt(var_dict['v'].data ** 2) + (var_dict['u'].data ** 2))
+            for x in vars_yr:
+                UTC_3[x] = np.concatenate((np.mean(vars_yr[x][5:, 0, 161:163, 182:184].data, axis=(1, 2)),
+                                           np.mean(vars_yr[x][:5, 0, 161:163, 182:184].data, axis=(1, 2))), axis=0)
+            diur_ff = iris.cube.Cube(data=np.sqrt(vars_yr['v'].data ** 2) + (vars_yr['u'].data ** 2))
             UTC_3['ff'] = np.concatenate((np.mean(diur_ff[5:, 0, 161:163, 182:184].data, axis=(1, 2)),
                                        np.mean(diur_ff[:5, 0,  161:163, 182:184].data, axis=(1, 2))), axis=0)
     ## Set up plotting options
@@ -378,7 +395,7 @@ def plot_diurnal(var, domain):
         ax.spines['right'].set_visible(False)
         [l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
         ax.set_ylabel('Mean energy \nflux (W m$^{-2}$', fontname='SegoeUI semibold', color='dimgrey', rotation=0,fontsize=28, labelpad=75)
-        for x in var_dict:
+        for x in vars_yr:
             ax.plot(UTC_3[x].data, color=colour_dict[x], lw=2)
         plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_diurnal_SEB.png', transparent = True)
         plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_diurnal_SEB.eps', transparent=True)
@@ -392,7 +409,7 @@ def plot_diurnal(var, domain):
             plt.setp(axs.spines.values(), linewidth=3, color='dimgrey')
             axs.spines['right'].set_visible(False)
             [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
-        for x in var_dict:
+        for x in vars_yr:
             ax[plot].plot(UTC_3[x], color = colour_dict[x], lw = 2)
             ax[plot].set_ylabel(x, fontname='SegoeUI semibold', color='dimgrey', rotation=0, fontsize=28, labelpad=75)
             ax[plot].tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
@@ -537,7 +554,7 @@ def surf_plot(vars_yr, AWS_var):
                       'FF_10m': 'Wind speed \n(m s$^{-1}$)',
                       'Tair_2m': '2 m air \ntemperature ($^{\circ}$C)',
                       'Tsobs': 'Surface \ntemperature ($^{\circ}$C)'}
-            obs = ax[plot].plot(AWS_var['day'].values[::24], AWS_daymn[j], color='k', linewidth=2.5, label="Observations at AWS 14")
+            obs = ax[plot].plot(vars_yr[k].coord('time').points[:365], AWS_daymn[j], color='k', linewidth=2.5, label="Observations at AWS 14")
             ax2 = ax[plot].twiny()
             ax2.plot(vars_yr[k].coord('time').points, np.mean(vars_yr[k].data[:, lat_index14-1:lat_index14+1,lon_index14-1:lon_index14+1], axis = (1,2)), linewidth=2.5, color=col_dict[r], label='*%(r)s UM output for AWS 14' % locals(), zorder = 5)
             ax2.axis('off')
@@ -567,7 +584,7 @@ def surf_plot(vars_yr, AWS_var):
         for axs in ax:
             axs.spines['top'].set_visible(False)
             plt.setp(axs.spines.values(), linewidth=2, color='dimgrey', )
-            axs.set_xlim(AWS_var['datetime'][1], AWS_var['datetime'][-1])
+            axs.set_xlim(AWS_var['datetime'].values[0], AWS_var['datetime'].values[-1])
             axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
             [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
         #plt.setp(ax[3].get_yticklabels()[-1], visible=False)
@@ -589,10 +606,10 @@ def surf_plot(vars_yr, AWS_var):
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
     plt.subplots_adjust(wspace = 0.05, hspace = 0.05, top = 0.95, right = 0.85, left = 0.16, bottom = 0.08)
-    plt.savefig('/users/ellgil82/figures/Hindcast/Validation/surface_met_'+vars_yr['year']+'_no_range_daymn.png', transparent = True)
-    plt.savefig('/users/ellgil82/figures/Hindcast/Validation/surface_met_'+vars_yr['year']+'_no_range_daymn.eps', transparent = True)
-    plt.savefig('/users/ellgil82/figures/Hindcast/Validation/surface_met_'+vars_yr['year']+'_no_range_daymn.pdf', transparent = True)
+    plt.savefig('/users/ellgil82/figures/Hindcast/Validation/surface_met_'+station_dict[station]+'_no_range_daymn.png', transparent = True)
+    plt.savefig('/users/ellgil82/figures/Hindcast/Validation/surface_met_'+station_dict[station]+'_no_range_daymn.eps', transparent = True)
+    plt.savefig('/users/ellgil82/figures/Hindcast/Validation/surface_met_'+station_dict[station]+'_no_range_daymn.pdf', transparent = True)
     plt.show()
 
 surf_plot(vars_2014, AWS14_SEB)
-surf_plot(vars_2012, AWS14_SEB)
+#surf_plot(vars_2012, AWS14_SEB)
