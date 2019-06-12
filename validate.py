@@ -48,6 +48,12 @@ def load_vars(year, mn):
         RH = iris.load_cube(filepath + 'output/' + year + '_RH_1p5m_daymn.nc', 'relative_humidity')
         u = iris.load_cube(filepath + 'output/' + year + '_u_10m_daymn.nc', 'x wind component (with respect to grid)')
         v = iris.load_cube(filepath + 'output/' + year + '_v_10m_daymn.nc', 'y wind component (with respect to grid)')
+        LWnet = iris.load_cube( filepath + 'output/'+year+'_surface_LW_net_daymn.nc', 'surface_net_downward_longwave_flux')
+        SWnet = iris.load_cube(filepath + 'output/' + year + '_surface_SW_net_daymn.nc','Net short wave radiation flux')
+        LWdown = iris.load_cube( filepath + 'output/'+year+'_surface_LW_down_daymn.nc', 'IR down')
+        SWdown = iris.load_cube( filepath + 'output/'+year+'_surface_SW_down_daymn.nc', 'surface_downwelling_shortwave_flux_in_air')
+        HL = iris.load_cube( filepath + 'output/'+year+'_latent_heat_daymn.nc', 'Latent heat flux')
+        HS = iris.load_cube( filepath + 'output/'+year+'_sensible_heat_daymn.nc', 'surface_upward_sensible_heat_flux')
     else:
         Tair = iris.load_cube( filepath + 'output/'+year+'_Tair_1p5m.nc', 'air_temperature')
         Ts = iris.load_cube( filepath + 'output/'+year+'_Ts.nc', 'surface_temperature')
@@ -57,22 +63,39 @@ def load_vars(year, mn):
         RH = iris.load_cube(filepath + 'output/' + year + '_RH_1p5m.nc', 'relative_humidity')
         u = iris.load_cube(filepath + 'output/' + year + '_u_10m.nc', 'x wind component (with respect to grid)')
         v = iris.load_cube(filepath + 'output/' + year + '_v_10m.nc', 'y wind component (with respect to grid)')
+        LWnet = iris.load_cube( filepath + 'output/'+year+'_surface_LW_net.nc', 'surface_net_downward_longwave_flux')
+        SWnet = iris.load_cube(filepath + 'output/' + year + '_surface_SW_net.nc','Net short wave radiation flux')
+        LWdown = iris.load_cube( filepath + 'output/'+year+'_surface_LW_down.nc', 'IR down')
+        SWdown = iris.load_cube( filepath + 'output/'+year+'_surface_SW_down.nc', 'surface_downwelling_shortwave_flux_in_air')
+        HL = iris.load_cube( filepath + 'output/'+year+'_latent_heat.nc', 'Latent heat flux')
+        HS = iris.load_cube( filepath + 'output/'+year+'_sensible_heat.nc', 'surface_upward_sensible_heat_flux')
     Tair.convert_units('celsius')
     Ts.convert_units('celsius')
     MSLP.convert_units('hPa')
     sfc_P.convert_units('hPa')
     FF_10m = FF_10m[:,:,1:,:]
     v = v[:,:,1:,:]
-    var_list = [Tair, Ts, MSLP, sfc_P, FF_10m, RH, u, v]
+    var_list = [Tair, Ts, MSLP, sfc_P, FF_10m, RH, u, v, LWnet, SWnet, LWdown, SWdown, HL, HS]
     for i in var_list:
         real_lon, real_lat = rotate_data(i, 2, 3)
     WD = metpy.calc.wind_direction(u = u.data, v = v.data)
     WD = iris.cube.Cube(data = WD, standard_name='wind_from_direction')
-    vars_yr = {'Tair': Tair[:,0,:,:], 'Ts': Ts[:,0,:,:], 'MSLP': MSLP[:,0,:,:], 'sfc_P': sfc_P[:,0,:,:], 'FF_10m': FF_10m[:,0,:,:], 'RH': RH[:,0,:,:], 'WD': WD[:,0,:,:], 'lon': real_lon, 'lat': real_lat, 'year': year}
+    Etot = LWnet.data + SWnet.data - HL.data - HS.data
+    Emelt = np.copy(Etot)
+    Emelt[Ts.data < -0.025] = 0
+    for turb in [HS, HL]:
+        turb = 0-turb.data
+        turb = iris.cube.Cube(turb)
+    Emelt = iris.cube.Cube(Emelt)
+    Etot = iris.cube.Cube(Etot)
+    vars_yr = {'Tair': Tair[:,0,:,:], 'Ts': Ts[:,0,:,:], 'MSLP': MSLP[:,0,:,:], 'sfc_P': sfc_P[:,0,:,:], 'FF_10m': FF_10m[:,0,:,:],
+               'RH': RH[:,0,:,:], 'WD': WD[:,0,:,:], 'LWnet': LWnet[:,0,:,:], 'SWnet': SWnet[:,0,:,:], 'SWdown': SWdown[:,0,:,:],
+               'LWdown': LWdown[:,0,:,:], 'HL': HL[:,0,:,:], 'HS': HS[:,0,:,:], 'Etot': Etot[:,0,:,:], 'Emelt': Emelt[:,0,:,:],
+               'lon': real_lon, 'lat': real_lat, 'year': year}
     return vars_yr
 
 vars_2012 = load_vars('2012', mn = 'no')
-vars_2014 = load_vars('2014', mn = 'no')
+#vars_2014 = load_vars('2014', mn = 'no')
 #vars_2016 = load_vars('2016')
 #vars_2017 = load_vars('2017')
 
@@ -91,8 +114,7 @@ def load_AWS(station, year):
     os.chdir('/data/clivarm/wip/ellgil82/AWS/')
     for file in os.listdir('/data/clivarm/wip/ellgil82/AWS/'):
         if fnmatch.fnmatch(file, '%(station)s*' % locals()):
-            AWS_srs = pd.read_csv(str(file), header = 0)
-            print(AWS_srs.shape)
+            AWS_srs = pd.read_csv(str(file), na_values = -9999, header = 0)
     # Calculate date, given list of years and day of year
     date_list = compose_date(AWS_srs['year'], days=AWS_srs['day'])
     AWS_srs['Date'] = date_list
@@ -113,7 +135,12 @@ def load_AWS(station, year):
     case['Time'] = time_list
     case['datetime'] = case.apply(lambda r : pd.datetime.combine(r['Date'],r['Time']),1)
     case['E'] = case['LWnet_corr'].values + case['SWnet_corr'].values + case['Hlat'].values + case['Hsen'].values - case['Gs'].values
-    case = case.tail(1).append(case.iloc[:-1])
+    case['WD'][case['WD'] < 0.] = np.nan
+    case['FF_10m'][case['FF_10m'] < 0.] = np.nan
+    case['WD'] = case['WD'].interpolate() # interpolate missing values
+    case['FF_10m'] = case['FF_10m'].interpolate()
+    if station == 'AWS14_SEB_2009-2017_norp':
+        case = case.tail(1).append(case.iloc[:-1])
     if host == 'jasmin':
         os.chdir('/group_workspaces/jasmin4/bas_climate/users/ellgil82/OFCAP/proc_data/')
     elif host == 'bsl':
@@ -125,10 +152,10 @@ AWS14_SEB = load_AWS('AWS14_SEB_2009-2017_norp', '2014')
 AWS17_SEB = load_AWS('AWS17_SEB_2011-2015_norp', '2014')
 
 # Find locations of AWSs
-lon_index14, lat_index14 = find_gridbox(-67.01, -61.03, vars_2014['lat'], vars_2014['lon'])
-lon_index15, lat_index15 = find_gridbox(-67.34, -62.09, vars_2014['lat'], vars_2014['lon'])
-lon_index17, lat_index17 = find_gridbox(-65.93, -61.85, vars_2014['lat'], vars_2014['lon'])
-lon_index18, lat_index18 = find_gridbox(-66.48272, -63.37105, vars_2014['lat'], vars_2014['lon'])
+lon_index14, lat_index14 = find_gridbox(-67.01, -61.03, vars_2012['lat'], vars_2012['lon'])
+lon_index15, lat_index15 = find_gridbox(-67.34, -62.09, vars_2012['lat'], vars_2012['lon'])
+lon_index17, lat_index17 = find_gridbox(-65.93, -61.85, vars_2012['lat'], vars_2012['lon'])
+lon_index18, lat_index18 = find_gridbox(-66.48272, -63.37105, vars_2012['lat'], vars_2012['lon'])
 
 file_dict = {'surface_temperature': '_Ts.nc',
              'air_temperature': '_Tair_1p5m.nc',
@@ -137,7 +164,8 @@ file_dict = {'surface_temperature': '_Ts.nc',
              'y wind component (with respect to grid)': '_v_10m.nc',
              'relative_humidity': '_RH_1p5m.nc',
              'surface_air_pressure': '_sfc_P.nc',
-             'air_pressure_at_sea_level': '_MSLP.nc'}
+             'air_pressure_at_sea_level': '_MSLP.nc',
+             }
 
 lat_dict = {'AWS14': lat_index14,
             'AWS15': lat_index15,
@@ -193,7 +221,7 @@ def seas_mean(year_list, location):
         #DJF_means[each_var] = DJF_means[each_var] / len(year_list)
     return seas_means, seas_vals
 
-#seas_means, seas_vals = seas_mean(['2014'], 'AWS14')
+#seas_means, seas_vals = seas_mean(['2014'], 'AWS17')
 
 def calc_bias(year, station):
     # Calculate bias of time series
@@ -201,13 +229,21 @@ def calc_bias(year, station):
     AWS_var = load_AWS(station, year)
     AWS_var = AWS_var[::3]
     vars_yr = load_vars(year, mn = 'no')
-    surf_met_obs = [AWS_var['Tsobs'], AWS_var['Tair_2m'], AWS_var['RH'], AWS_var['FF_10m'], AWS_var['pres'], AWS_var['WD']]
+    surf_met_obs = [AWS_var['Tsobs'], AWS_var['Tair_2m'], AWS_var['RH'], AWS_var['FF_10m'], AWS_var['pres'], AWS_var['WD'], AWS_var['SWin_corr'], AWS_var['LWin'], AWS_var['SWnet_corr'], AWS_var['LWnet_corr'],
+                    AWS_var['Hsen'], AWS_var['Hlat'], AWS_var['melt_energy']]
     surf_mod = [np.mean(vars_yr['Ts'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
                 np.mean(vars_yr['Tair'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1],axis = (1,2)),
                 np.mean(vars_yr['RH'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
                 np.mean(vars_yr['FF_10m'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
                 np.mean(vars_yr['sfc_P'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
-                np.mean(vars_yr['WD'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2))]
+                np.mean(vars_yr['WD'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                np.mean(vars_yr['SWdown'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                np.mean(vars_yr['LWdown'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                np.mean(vars_yr['SWnet'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                np.mean(vars_yr['LWnet'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                np.mean(vars_yr['HS'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                np.mean(vars_yr['HL'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                np.mean(vars_yr['Emelt'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2))]
     mean_obs = []
     mean_mod = []
     bias = []
@@ -225,7 +261,7 @@ def calc_bias(year, station):
         mse = mean_squared_error(y_true = surf_met_obs[i], y_pred = surf_mod[i])
         rmse = np.sqrt(mse)
         rmses.append(rmse)
-        idx = ['Ts', 'Tair', 'RH', 'FF', 'P', 'WD']
+        idx = ['Ts', 'Tair', 'RH', 'FF', 'P', 'WD', 'Swdown', 'LWdown', 'SWnet', 'LWnet', 'HS', 'HL', 'Emelt']
     df = pd.DataFrame(index = idx)
     df['obs mean'] = pd.Series(mean_obs, index = idx)
     df['mod mean'] = pd.Series(mean_mod, index = idx)
@@ -241,8 +277,10 @@ def calc_bias(year, station):
     df.to_csv('/data/mac/ellgil82/hindcast/'+ year + '_' + station_dict[station] + '_bias_RMSE.csv') # change to be station-specific
     print(df)
 
-calc_bias('2014', station = 'AWS14_SEB_2009-2017_norp')
+#calc_bias('2014', station = 'AWS14_SEB_2009-2017_norp')
 calc_bias('2012', station = 'AWS14_SEB_2009-2017_norp')
+#calc_bias('2014', station = 'AWS17_SEB_2011-2015_norp')
+calc_bias('2012', station = 'AWS17_SEB_2011-2015_norp')
 
 def remove_diurnal_cyc(input_var):
     if input_var.ndim >= 2:
@@ -293,24 +331,26 @@ import matplotlib.cm as cm
 #           vars_2016: '2016',
 #           vars_2017: '2017'}
 
-def wind_rose(vars_yr, station):
+def wind_rose(year, station):
+    vars_yr = load_vars(year, mn = 'no')
+    AWS_var = load_AWS(station, year)
     fig = plt.figure(figsize = (16,8))
     rect = [0.05, 0.1, 0.45, 0.6]
     wa = WindroseAxes(fig, rect)
     fig.add_axes(wa)
     # define data limits
     max_mod = max(np.mean(vars_yr['FF_10m'][:,lat_index14-1:lat_index14+1, lon_index14-1:lon_index14+1].data, axis = (1,2)))
-    max_obs = max(station['FF'])
+    max_obs = max(AWS_var['FF'])
     wa.set_title('Observed', fontsize = 28, color = 'dimgrey', pad = 50)
     wa.axes.spines['polar'].set_visible(False)
     wa.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-    wa.bar(station['WD'], station['FF'], bins = np.arange(0, max(max_mod, max_obs),4), cmap = plt.get_cmap('viridis'), normed = True,opening=0.8, edgecolor='white')
+    wa.bar(AWS_var['WD'], AWS_var['FF'], bins = np.arange(0, max(max_mod, max_obs),4), cmap = plt.get_cmap('viridis'), normed = True,opening=0.8, edgecolor='white')
     wa.set_yticklabels([])
     rect = [0.55, 0.1, 0.45, 0.6]
     wa = WindroseAxes(fig, rect)
     fig.add_axes(wa)
     wa.set_title('Modelled', fontsize=28, color='dimgrey', pad = 50)
-    wa.bar(np.mean(vars_yr['WD'][:,lat_index14-1:lat_index14+1, lon_index14-1:lon_index14+1].magnitude, axis = (1,2)),
+    wa.bar(np.mean(vars_yr['WD'][:,lat_index14-1:lat_index14+1, lon_index14-1:lon_index14+1].data, axis = (1,2)),
            np.mean(vars_yr['FF_10m'][:,lat_index14-1:lat_index14+1, lon_index14-1:lon_index14+1].data, axis = (1,2)),
            bins = np.arange(0, max(max_mod, max_obs),4), cmap = plt.get_cmap('viridis'),  normed = True, opening=0.8, edgecolor='white')
     lgd = wa.set_legend( bbox_to_anchor=(-0.5, 0.9))
@@ -322,9 +362,11 @@ def wind_rose(vars_yr, station):
     wa.axes.spines['polar'].set_visible(False)
     wa.set_yticklabels([])
     wa.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-    plt.savefig('/users/ellgil82/figures/Hindcast/wind_rose_AWS14_2016.png')
-    plt.savefig('/users/ellgil82/figures/Hindcast/wind_rose_AWS14_2016.eps')
+    plt.savefig('/users/ellgil82/figures/Hindcast/wind_rose_' + station + '_' + year + '.png')
+    plt.savefig('/users/ellgil82/figures/Hindcast/wind_rose_' + station + '_' + year + '.eps')
     plt.show()
+
+wind_rose(year = '2014', station = 'AWS17')
 
 def plot_diurnal(var, domain):
     orog = iris.load_cube('OFCAP_orog.nc', 'surface_altitude')
@@ -463,11 +505,11 @@ def seas_wind_rose(year, station):
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey', fontsize=24)
     lgd.get_frame().set_linewidth(0.0)
-    plt.savefig('/users/ellgil82/figures/Hindcast/wind_rose_AWS14_2014_seasons.png')
-    plt.savefig('/users/ellgil82/figures/Hindcast/wind_rose_AWS14_2014_seasons.eps')
+    plt.savefig('/users/ellgil82/figures/Hindcast/wind_rose_' + station + '_' + year + '_seasons.png')
+    plt.savefig('/users/ellgil82/figures/Hindcast/wind_rose_' + station + '_' + year + '_seasons.eps')
     plt.show()
 
-#seas_wind_rose('2014', 'AWS14')
+seas_wind_rose('2014', 'AWS17')
 
 def SEB_plot():
     fig, ax = plt.subplots(2,2,sharex= True, sharey = True, figsize=(22, 12))
