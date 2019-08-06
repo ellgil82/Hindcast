@@ -15,7 +15,7 @@ echo "Processing surface meteorology stream (pa) from "$year"":
 echo "Processing u wind"
 conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_u_10m.nc -f 2
 
-echo "Processing v wind"
+#echo "Processing v wind"
 conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_v_10m.nc -f 3
 
 echo "Processing FF"
