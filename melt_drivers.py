@@ -91,7 +91,6 @@ lon_dict = {'AWS14': lon_index14,
             'AWS17': lon_index17,
             'AWS18': lon_index18}
 
-
 station_dict = {'AWS14_SEB_2009-2017_norp.csv': 'AWS14',
              'AWS15_hourly_2009-2014.csv': 'AWS15',
               'AWS17_SEB_2011-2015_norp.csv': 'AWS17',
@@ -99,42 +98,39 @@ station_dict = {'AWS14_SEB_2009-2017_norp.csv': 'AWS14',
 
 
 ## Diagnose correlation between shortwave flux and melting across model domain
-cloud_melt = pd.DataFrame(index = ['r', 'r_squared', 'p', 'std_err'])
-for year in year_list:
-    SW = iris.load_cube(filepath + year + '_surface_SW_down.nc', 'surface_downwelling_shortwave_flux_in_air')
-    melt = iris.load_cube(filepath + year + '_land_snow_melt_amnt.nc', 'Snowmelt')
-    SW = SW[:,0,:,:]
-    melt = melt[:,0,:,:]
-    orog = iris.load_cube(filepath + 'orog.nc', 'surface_altitude')
-    orog = orog[0, 0, :, :]
-    LSM = iris.load_cube(filepath + 'new_mask.nc', lsm_name)
-    lsm = LSM[0, 0, :, :]
-    # Make ice shelf mask
-    Larsen_mask = np.zeros((220,220))
-    lsm_subset = lsm.data[:150, 90:160]
-    Larsen_mask[:150, 90:160] = lsm_subset
-    Larsen_mask[orog.data > 100 ] = 0
-    Larsen_mask = np.logical_not(Larsen_mask)
-    melt_masked = np.ma.masked_array(melt.data, mask = np.broadcast_to(Larsen_mask, melt.shape)).mean(axis = (1,2))
-    SW_masked = np.ma.masked_array(SW.data, mask = np.broadcast_to(Larsen_mask, SW.shape)).mean(axis = (1,2))
-    slope, intercept, r_value, p_value, std_err = stats.linregress(melt_masked, SW_masked)
-    stats_yr = [r_value, r_value**2, p_value, std_err]
-    cloud_melt[year] = pd.Series(stats_yr, index = ['r', 'r_squared', 'p', 'std_err'])
-    cloud_melt.to_csv(filepath + 'cloud_v_melt_stats_model_ice_shelf.csv')
+def cloud_melt(station, year_list):
+    cloud_melt = pd.DataFrame(index = ['r', 'r_squared', 'p', 'std_err'])
+    for year in year_list:
+        SW = iris.load_cube(filepath + year + '_surface_SW_down.nc', 'surface_downwelling_shortwave_flux_in_air')
+        melt = iris.load_cube(filepath + year + '_land_snow_melt_amnt.nc', 'Snowmelt')
+        SW = SW[:,0,:,:]
+        melt = melt[:,0,:,:]
+        if station == 'ice_shelf':
+            orog = iris.load_cube(filepath + 'orog.nc', 'surface_altitude')
+            orog = orog[0, 0, :, :]
+            LSM = iris.load_cube(filepath + 'new_mask.nc', lsm_name)
+            lsm = LSM[0, 0, :, :]
+            # Make ice shelf mask
+            Larsen_mask = np.zeros((220, 220))
+            lsm_subset = lsm.data[:150, 90:160]
+            Larsen_mask[:150, 90:160] = lsm_subset
+            Larsen_mask[orog.data > 100] = 0
+            Larsen_mask = np.logical_not(Larsen_mask)
+            melt_masked = np.ma.masked_array(melt.data, mask=np.broadcast_to(Larsen_mask, melt.shape)).mean(axis=(1, 2))
+            SW_masked = np.ma.masked_array(SW.data, mask=np.broadcast_to(Larsen_mask, SW.shape)).mean(axis=(1, 2))
+        else:
+            melt_masked = melt.data[:, lat_dict[station], lon_dict[station]]
+            SW_masked =SW.data[:, lat_dict[station], lon_dict[station]]
+        slope, intercept, r_value, p_value, std_err = stats.linregress(melt_masked, SW_masked)
+        stats_yr = [r_value, r_value**2, p_value, std_err]
+        cloud_melt[year] = pd.Series(stats_yr, index = ['r', 'r_squared', 'p', 'std_err'])
+        cloud_melt.to_csv(filepath + 'cloud_v_melt_stats_model_' + station + '.csv')
 
-cloud_melt = pd.DataFrame(index = ['r', 'r_squared', 'p', 'std_err'])
-for year in year_list:
-    SW = iris.load_cube(filepath + year + '_surface_SW_down.nc', 'surface_downwelling_shortwave_flux_in_air')
-    melt = iris.load_cube(filepath + year + '_land_snow_melt_amnt.nc', 'Snowmelt')
-    SW = SW[:,0,:,:]
-    melt = melt[:,0,:,:]
-    melt_masked = melt.data[:, lat_index17, lon_index17]
-    SW_masked =SW.data[:, lat_index17, lon_index17]
-    slope, intercept, r_value, p_value, std_err = stats.linregress(melt_masked, SW_masked)
-    stats_yr = [r_value, r_value**2, p_value, std_err]
-    cloud_melt[year] = pd.Series(stats_yr, index = ['r', 'r_squared', 'p', 'std_err'])
-    cloud_melt.to_csv(filepath + 'cloud_v_melt_stats_model_AWS17.csv')
-
+#cloud_melt(station = 'AWS14', year_list= year_list)
+#cloud_melt(station = 'AWS15', year_list = year_list)
+#cloud_melt(station = 'AWS17', year_list= year_list)
+#cloud_melt(station = 'AWS18', year_list = year_list)
+#cloud_melt(station = 'ice_shelf', year_list= year_list)
 
 for file in os.listdir(filepath):
     if fnmatch.fnmatch(file, 'Modelled_seasonal_foehn_frequency_%(station)s*.csv' % locals()):
