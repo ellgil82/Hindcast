@@ -7,161 +7,161 @@ echo "You've chosen "$year""
 echo "Processing surface meteorology stream (pa) from "$year"":
 
 # Process LSM
-#conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*0101T0000Z_Peninsula_4km_hindcast_pa000.pp -o /data/mac/ellgil82/hindcast/orog.nc -f 0
+#/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*0101T0000Z_Peninsula_4km_hindcast_pa000.pp -o /data/mac/ellgil82/hindcast/orog.nc -f 0
 
 # Process orography
-#conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*0101T0000Z_Peninsula_4km_hindcast_pa000.pp -o /data/mac/ellgil82/hindcast/orog.nc -f 1
+#/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*0101T0000Z_Peninsula_4km_hindcast_pa000.pp -o /data/mac/ellgil82/hindcast/orog.nc -f 1
 
 echo "Processing u wind"
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_u_10m.nc -f 2
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pa000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_u_10m.nc -f 2
 
 #echo "Processing v wind"
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_v_10m.nc -f 3
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pa000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_v_10m.nc -f 3
 
 echo "Processing FF"
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_FF_10m.nc -f 4
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pa000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_FF_10m.nc -f 4
 
 # Process Tair 1.5m
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_Tair_1p5m.nc -f 5
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pa000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_Tair_1p5m.nc -f 5
 
 # Process RH 1.5m
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_RH_1p5m.nc -f 6
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pa000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_RH_1p5m.nc -f 6
 
 # Process MSLP
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_MSLP.nc -f 7
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pa000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_MSLP.nc -f 7
 
 # Process Ts
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_Ts.nc -f 8
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pa000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_Ts.nc -f 8
 
 # Process BL depth
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_BL_depth.nc -f 9
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pa000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_BL_depth.nc -f 9
 
 # Process SIC
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_SIC.nc -f 10
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pa000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_SIC.nc -f 10
 
 # Process sfc P
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_sfc_P.nc -f 11
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pa000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_sfc_P.nc -f 11
 
 # Process max 10 m FF
-#conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_FF_10m_max.nc -f 12
+#/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pa000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_FF_10m_max.nc -f 12
 
 # Process Tmax
-#conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_Tmax.nc -f 13
+#/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pa000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_Tmax.nc -f 13
 
 # Process Tmin
-#conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pa000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_Tmin.nc -f 14
+#/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pa000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_Tmin.nc -f 14
 
 echo "Processing cloud stream (pb) from "$year"":
 # Process cloud fraction
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pb000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_cl_frac.nc -f 0
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pb000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_cl_frac.nc -f 0
 
 # Process total column liquid
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pb000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_total_column_liquid.nc -f 1
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pb000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_total_column_liquid.nc -f 1
 
 # Process total column ice
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pb000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_total_column_ice.nc -f 2
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pb000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_total_column_ice.nc -f 2
 
 # Process total column vapour
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pb000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_total_column_vapour.nc -f 3
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pb000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_total_column_vapour.nc -f 3
 
 # Process QCF
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pb000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_QCF.nc -f 4
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pb000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_QCF.nc -f 4
 
 # Process QCL
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pb000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_QCL.nc -f 5
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pb000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_QCL.nc -f 5
 
 echo "Processing surface energy balance stream (pc) from "$year"":
 # Process SWnet
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pc000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_surface_SW_net.nc -f 0
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pc000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_surface_SW_net.nc -f 0
 
 # Process TOA SWin
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pc000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_TOA_incoming_SW.nc -f 1
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pc000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_TOA_incoming_SW.nc -f 1
 
 # Process HS
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pc000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_sensible_heat.nc -f 2
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pc000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_sensible_heat.nc -f 2
 
 # Process HL
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pc000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_latent_heat.nc -f 3
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pc000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_latent_heat.nc -f 3
 
 # Process TOA OSR
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pc000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_TOA_outgoing_SW.nc -f 4
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pc000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_TOA_outgoing_SW.nc -f 4
 
 # Process SWdown
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pc000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_surface_SW_down.nc -f 5
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pc000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_surface_SW_down.nc -f 5
 
 # Process LWnet
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pc000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_surface_LW_net.nc -f 6
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pc000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_surface_LW_net.nc -f 6
 
 # Process TOA OLR
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pc000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_TOA_outgoing_LW.nc -f 7
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pc000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_TOA_outgoing_LW.nc -f 7
 
 # Process LWdown
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pc000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_surface_LW_down.nc -f 8
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pc000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_surface_LW_down.nc -f 8
 
 echo "Processing surface mass balance stream (pd) from "$year"":
 # Process evaporation
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pd000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_evaporation_rate.nc -f 0
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pd000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_evaporation_rate.nc -f 0
 
 # Process sublimation
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pd000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_sublimation_rate.nc -f 1 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pd000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_sublimation_rate.nc -f 1 &
 
 # Process land mean potential evaporation
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pd000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_potential_evaporation_rate.nc -f 2 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pd000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_potential_evaporation_rate.nc -f 2 &
 
 # Process snow melt amnt
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pd000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_land_snow_melt_amnt.nc -f 3 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pd000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_land_snow_melt_amnt.nc -f 3 &
 
 # Process snow melt flux
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pd000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_land_snow_melt_flux.nc -f 4 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pd000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_land_snow_melt_flux.nc -f 4 &
 
 # Process snow melt rate
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pd000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_land_snow_melt_rate.nc -f 5 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pd000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_land_snow_melt_rate.nc -f 5 &
 
 # Process surface runoff rate
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pd000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_surface_runoff_rate.nc -f 6 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pd000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_surface_runoff_rate.nc -f 6 &
 
 # Process subsurface runoff rate
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pd000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_subsurface_runoff_rate.nc -f 7 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pd000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_subsurface_runoff_rate.nc -f 7 &
 
 # Process tiled snow mass balance
-#conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pd000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_tiled_snow_mass_balance.nc -f 8
+#/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pd000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_tiled_snow_mass_balance.nc -f 8
 
 # Process tiled snow melt rate
-#conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pd000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_tiled_snow_melt_rate.nc -f 9
+#/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pd000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_tiled_snow_melt_rate.nc -f 9
 
 # Process tiled snow refreeze rate
-#conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pd000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_tiled_snow_refreeze_rate.nc -f 10
+#/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pd000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_tiled_snow_refreeze_rate.nc -f 10
 
 # Process tiled snow solid mass change
-#conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pd000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_tiled_snow_solid_mass_change.nc -f 11
+#/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pd000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_tiled_snow_solid_mass_change.nc -f 11
 
 # Process tiled snow liquid mass change
-#conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pd000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_tiled_snow_liquid_mass_change.nc -f 12
+#/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pd000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_tiled_snow_liquid_mass_change.nc -f 12
 
 # Process tiled snow net runoff
-#conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pd000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_tiled_snow_net_runoff.nc -f 13
+#/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pd000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_tiled_snow_net_runoff.nc -f 13
 
 echo "Processing profiles stream (pe) from "$year"":
 # Process u wind P levs
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pe000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_u_wind_P_levs.nc -f 0 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pe000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_u_wind_P_levs.nc -f 0 &
 
 # Process v wind P levs
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pe000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_v_wind_P_levs.nc -f 1 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pe000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_v_wind_P_levs.nc -f 1 &
 
 # Process Tair P levs
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pe000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_Tair_P_levs.nc -f 2 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pe000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_Tair_P_levs.nc -f 2 &
 
 # Process heavyside P levs
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pe000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_heavyside_func_P_levs.nc -f 3 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pe000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_heavyside_func_P_levs.nc -f 3 &
 
 # Process u wind profile
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pe000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_u_wind_full_profile.nc -f 4 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pe000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_u_wind_full_profile.nc -f 4 &
 
 # Process v wind profile
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pe000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_v_wind_full_profile.nc -f 5 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pe000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_v_wind_full_profile.nc -f 5 &
 
 # Process theta profile
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pe000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_theta_full_profile.nc -f 6 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pe000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_theta_full_profile.nc -f 6 &
 
 # Process q profile
-conv2nc.tcl -i /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/*hindcast*_pe000.pp -o /gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/"$year"/"$year"_q_full_profile.nc -f 7 &
+/users/toil/bin/conv2nc.tcl -i /data/mac/ellgil82/hindcast/output/"$year"/rerun/*hindcast*_pe000.pp -o /data/mac/ellgil82/hindcast/output/"$year"/rerun/"$year"_q_full_profile.nc -f 7 &
