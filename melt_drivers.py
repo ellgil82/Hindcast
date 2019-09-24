@@ -56,7 +56,12 @@ def load_vars(year):
     try:
         melt_flux = iris.load_cube(filepath + year + '_land_snow_melt_flux.nc', 'Snow melt heating flux')  # W m-2
         melt_amnt = iris.load_cube(filepath + year + '_land_snow_melt_amnt.nc', 'Snowmelt')  # kg m-2
-        melt_rate = iris.load_cube(filepath+year+'_Ts.nc', 'surface_temperature')
+        melt_rate = iris.load_cube(filepath + year + '_Ts.nc', 'surface_temperature')
+        SW_down = iris.load_cube(filepath + year + '_surface_SW_down.nc', 'surface_downwelling_shortwave_flux_in_air')
+        LW_down = iris.load_cube(filepath + year + '_surface_LW_down.nc', 'IR down')
+        cloud_cover = iris.load_cube(filepath + year + '_cl_frac.nc', 'Total cloud')
+        IWP = iris.load_cube(filepath + year + '_total_column_ice.nc', 'atmosphere_cloud_ice_content')
+        LWP = iris.load_cube(filepath + year + '_total_column_liquid.nc', 'atmosphere_cloud_liquid_water_content')
         #melt_rate = iris.load_cube(filepath + year + '_land_snow_melt_rate.nc', 'Rate of snow melt on land')  # kg m-2 s-1
         orog = iris.load_cube(ancil_path + 'orog.nc', 'surface_altitude')
         orog = orog[0, 0, :, :]
@@ -64,22 +69,23 @@ def load_vars(year):
         LSM = LSM[0, 0, :, :]
     except iris.exceptions.ConstraintMismatchError:
         print('Files not found')
-    var_list = [melt_rate, melt_amnt, melt_flux]
+    var_list = [melt_rate, melt_amnt, melt_flux, SW_down, cloud_cover, IWP, LWP, LW_down]
     for i in var_list:
         real_lon, real_lat = rotate_data(i, 2, 3)
-    vars_yr = {'melt_flux': melt_flux[:,0,:,:], 'melt_rate': melt_rate[:,0,:,:], 'melt_amnt': melt_amnt[:,0,:,:],
-               'orog': orog, 'lsm': LSM,'lon': real_lon, 'lat': real_lat, 'year': year}
+    vars_yr = {'melt_flux': melt_flux[:2920,0,:,:], 'melt_rate': melt_rate[:2920,0,:,:], 'melt_amnt': melt_amnt[:2920,0,:,:], 'SW_down': SW_down[:2920,0,:,:],  'LW_down': LW_down[:2920,0,:,:], 'cl_cover': cloud_cover[:2920, 0, :, :],
+               'IWP': IWP[:2920,0,:,:], 'LWP': LWP[:2920,0,:,:], 'orog': orog, 'lsm': LSM,'lon': real_lon, 'lat': real_lat, 'year': year}
     return vars_yr
 
-surf_2012 = load_vars('2012')
+surf= load_vars('2012')
+#surf = load_vars('1998-2017')
 
-year_list = ['1998', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017']
+year_list = ['1998', '1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017']
 
 
-lon_index14, lat_index14 = find_gridbox(-67.01, -61.03, surf_2012['lat'], surf_2012['lon'])
-lon_index15, lat_index15 = find_gridbox(-67.34, -62.09, surf_2012['lat'], surf_2012['lon'])
-lon_index17, lat_index17 = find_gridbox(-65.93, -61.85, surf_2012['lat'], surf_2012['lon'])
-lon_index18, lat_index18 = find_gridbox(-66.48272, -63.37105, surf_2012['lat'], surf_2012['lon'])
+lon_index14, lat_index14 = find_gridbox(-67.01, -61.03, surf['lat'], surf['lon'])
+lon_index15, lat_index15 = find_gridbox(-67.34, -62.09, surf['lat'], surf['lon'])
+lon_index17, lat_index17 = find_gridbox(-65.93, -61.85, surf['lat'], surf['lon'])
+lon_index18, lat_index18 = find_gridbox(-66.48272, -63.37105, surf['lat'], surf['lon'])
 
 lat_dict = {'AWS14': lat_index14,
             'AWS15': lat_index15,
@@ -165,3 +171,123 @@ JJA_stats = [r_value, r_value**2, p, std_err]
 
 slope, intercept, r_value, p_value, std_err = stats.linregress(foehn_freq['SON'],total_melt_SON)
 SON_stats = [r_value, r_value**2, p, std_err]
+
+
+# Plot spatial correlations over whole domain - where is correlation between SW and melting strongest?
+
+# at each *unmasked* gridpoint, compute correlations aver time axis
+
+def run_corr(year_vars,xvar, yvar):
+    # Make ice shelf mask
+    Larsen_mask = np.zeros((220, 220))
+    lsm_subset = year_vars['lsm'].data[:150, 90:160]
+    Larsen_mask[:150, 90:160] = lsm_subset
+    Larsen_mask[year_vars['orog'][:,:].data > 100] = 0
+    Larsen_mask = np.logical_not(Larsen_mask)
+    x_masked = np.ma.masked_array(year_vars[xvar].data, mask=np.broadcast_to(Larsen_mask, year_vars[xvar].shape))
+    y_masked = np.ma.masked_array(year_vars[yvar].data, mask=np.broadcast_to(Larsen_mask, year_vars[yvar].shape))
+    unmasked_idx = np.where(Larsen_mask == 0)
+    r = np.zeros((220,220))
+    p = np.zeros((220,220))
+    err = np.zeros((220,220))
+    for x, y in zip(unmasked_idx[0],unmasked_idx[1]):
+        if x > 0. or y > 0.:
+            slope, intercept, r_value, p_value, std_err = stats.linregress(x_masked[:,x, y], y_masked[:,x, y])
+            r[x,y] = r_value
+            p[x,y] = p_value
+            err[x,y] = std_err
+    r2 = r**2
+    return r, r2, p, err, x_masked, y_masked
+
+def correlation_maps(year_list, xvar, yvar):
+    fig, ax = plt.subplots(7, 3, figsize=(8, 18))
+    CbAx = fig.add_axes([0.25, 0.1, 0.5, 0.02])
+    ax = ax.flatten()
+    for axs in ax:
+        axs.axis('off')
+    comp_r = np.zeros((220, 220))
+    plot = 0
+    for year in year_list:
+        vars_yr = load_vars(year)
+        r, r2, p, err, xmasked, y_masked = run_corr(vars_yr, xvar = xvar, yvar = yvar)
+        squished_cmap = shiftedColorMap(cmap = matplotlib.cm.viridis, min_val = 0, max_val = 1, name = 'squished_cmap', var = r, start = 0.25, stop = 0.75)
+        c = ax[plot].pcolormesh(r, cmap = matplotlib.cm.Spectral, vmin = -1., vmax = 1.)
+        ax[plot].contour(vars_yr['lsm'].data, colors='#222222', lw=2)
+        ax[plot].contour(vars_yr['orog'].data, colors='#222222', levels=[100])
+        comp_r = comp_r + r
+        ax[plot].text(0.4, 1.1, s=year_list[plot], fontsize=24, color='dimgrey', transform=ax[plot].transAxes)
+        unmasked_idx = np.where(y_masked.mask[0,:,:] == 0)
+        sig = np.ma.masked_array(p, mask = y_masked[0,:,:].mask)
+        sig = np.ma.masked_greater(sig, 0.01)
+        ax[plot].contourf(sig, hatches = '...')
+        plot = plot + 1
+    mean_r_composite = comp_r / len(year_list)
+    ax[-1].contour(vars_yr['lsm'].data, colors='#222222', lw=2)
+    ax[-1].pcolormesh(mean_r_composite, cmap = matplotlib.cm.Spectral, vmin = -1., vmax = 1.)
+    ax[-1].contour(vars_yr['orog'].data, colors='#222222', levels=[100])
+    ax[-1].text(0., 1.1, s='Composite', fontsize=24, color='dimgrey', transform=ax[-1].transAxes)
+    cb = plt.colorbar(c, orientation='horizontal', cax=CbAx, ticks=[0, 0.5, 1])
+    cb.solids.set_edgecolor("face")
+    cb.outline.set_edgecolor('dimgrey')
+    cb.ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0, tick1On=False, tick2On=False)
+    cb.outline.set_linewidth(2)
+    cb.ax.xaxis.set_ticks_position('bottom')
+    # cb.ax.set_xticks([0,4,8])
+    cb.set_label('Correlation coefficient', fontsize=24, color='dimgrey', labelpad=30)
+    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.15, hspace=0.3, wspace=0.05)
+    if host == 'bsl':
+        plt.savefig('/users/ellgil82/figures/Hindcast/SMB/'+ xvar + '_v_' + yvar + '_all_years.png', transparent=True)
+        plt.savefig('/users/ellgil82/figures/Hindcast/SMB/'+ xvar + '_v_' + yvar + '_all_years.eps', transparent=True)
+    elif host == 'jasmin':
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/'+ xvar + '_v_' + yvar + '_all_years.png', transparent=True)
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/'+ xvar + '_v_' + yvar + '_all_years.eps', transparent=True)
+    # Save composite separately
+    fig, ax = plt.subplots()
+    ax.contour(vars_yr['lsm'].data, colors='#222222', lw=2)
+    ax.pcolormesh(mean_r_composite, cmap=matplotlib.cm.Spectral, vmin=-1., vmax=1.)
+    ax.contour(vars_yr['orog'].data, colors='#222222', levels=[100])
+    ax.text(0., 1.1, s='Composite', fontsize=24, color='dimgrey', transform=ax.transAxes)
+    cb = plt.colorbar(c, orientation='horizontal', ticks=[0, 0.5, 1])
+    cb.solids.set_edgecolor("face")
+    cb.outline.set_edgecolor('dimgrey')
+    cb.ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0, tick1On=False,
+                      tick2On=False)
+    cb.outline.set_linewidth(2)
+    cb.ax.xaxis.set_ticks_position('bottom')
+    # cb.ax.set_xticks([0,4,8])
+    cb.set_label('Correlation coefficient', fontsize=24, color='dimgrey', labelpad=30)
+    if host == 'bsl':
+        plt.savefig('/users/ellgil82/figures/Hindcast/SMB/' + xvar + '_v_' + yvar + '_composite.png', transparent=True)
+        plt.savefig('/users/ellgil82/figures/Hindcast/SMB/' + xvar + '_v_' + yvar + '_composite.eps', transparent=True)
+    elif host == 'jasmin':
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + xvar + '_v_' + yvar + '_composite.png',transparent=True)
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + xvar + '_v_' + yvar + '_composite.eps',transparent=True)
+    #plt.show()
+
+for i in ['cl_cover', 'SW_down', 'LW_down', 'IWP', 'LWP']:
+    correlation_maps(year_list = year_list, xvar = 'melt_amnt', yvar = i)
+
+
+
+def _cmap_discretize(cmap, N):
+    if type(cmap) == str:
+        cmap = plt.get_cmap(cmap)
+    colors_i = np.concatenate((np.linspace(0, 1., N), (0., 0., 0., 0.)))
+    colors_rgba = cmap(colors_i)
+    indices = np.linspace(0, 1., N + 1)
+    cdict = {}
+    for ki, key in enumerate(('red', 'green', 'blue')):
+        cdict[key] = [(indices[i], colors_rgba[i - 1, ki], colors_rgba[i, ki])
+                      for i in range(N + 1)]
+    # Return colormap object.
+    return cdict, matplotlib.colors.LinearSegmentedColormap(cmap.name + "_%d" % N, cdict, 1024)
+
+cdict, cmap_lin = _cmap_discretize('viridis', 1024)
+
+squish = shiftedColorMap(cmap= matplotlib.cm.viridis, min_val = 0.25, max_val = 0.75, name = 'squish', var = r, start = 0., stop = 1.)
+
+clevs = np.arange(0.25, 0.75)
+
+c = plt.pcolormesh(r, cmap = matplotlib.cm.viridis, vmin = 0.0, vmax = .7)
+plt.colorbar(c, extend = 'both')
+plt.show()
