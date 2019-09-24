@@ -1,5 +1,5 @@
 # Define where the script is running
-host = 'bsl'
+host = 'jasmin'
 
 # Import packages
 import iris
@@ -33,7 +33,7 @@ import metpy.calc
 
 # Set up filepath
 if host == 'jasmin':
-    filepath = '/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/test_run/'
+    filepath = '/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/alloutput/'
 elif host == 'bsl':
     filepath = '/data/mac/ellgil82/hindcast/output/'
 
@@ -95,11 +95,7 @@ def load_vars(year, mn):
                'lon': real_lon, 'lat': real_lat, 'year': year, 'Emelt_calc': Emelt_calc[:,0,:,:]}
     return vars_yr
 
-vars_2012 = load_vars('2012', mn = 'no')
-vars_2014 = load_vars('2014', mn = 'no')
-vars_2011 = load_vars('2011', mn = 'yes')
-#vars_2016 = load_vars('2016')
-#vars_2017 = load_vars('2017')
+full_srs = load_vars('1998-2017', mn = 'no')
 
 try:
     LSM = iris.load_cube(filepath+'new_mask.nc', 'LAND MASK (No halo) (LAND=TRUE)')
@@ -158,12 +154,7 @@ def load_AWS(station, year):
 AWS14_SEB, DJF_14, MAM_14, JJA_14, SON_14 = load_AWS('AWS14_SEB_2009-2017_norp', '2011')
 #AWS15_SEB = load_AWS('AWS15_hourly_2009-2014.csv', '2014')
 AWS17_SEB, DJF_17, MAM_17, JJA_17, SON_17 = load_AWS('AWS17_SEB_2011-2015_norp', '2011')
-
-# Find locations of AWSs
-lon_index14, lat_index14 = find_gridbox(-67.01, -61.03, vars_2012['lat'], vars_2012['lon'])
-lon_index15, lat_index15 = find_gridbox(-67.34, -62.09, vars_2012['lat'], vars_2012['lon'])
-lon_index17, lat_index17 = find_gridbox(-65.93, -61.85, vars_2012['lat'], vars_2012['lon'])
-lon_index18, lat_index18 = find_gridbox(-66.48272, -63.37105, vars_2012['lat'], vars_2012['lon'])
+et
 
 file_dict = {'surface_temperature': '_Ts.nc',
              'air_temperature': '_Tair_1p5m.nc',
