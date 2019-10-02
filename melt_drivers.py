@@ -63,21 +63,22 @@ def load_vars(year):
         IWP = iris.load_cube(filepath + year + '_total_column_ice.nc', 'atmosphere_cloud_ice_content')
         LWP = iris.load_cube(filepath + year + '_total_column_liquid.nc', 'atmosphere_cloud_liquid_water_content')
         #melt_rate = iris.load_cube(filepath + year + '_land_snow_melt_rate.nc', 'Rate of snow melt on land')  # kg m-2 s-1
+        foehn_freq = iris.load_cube(filepath + year) # full series
         orog = iris.load_cube(ancil_path + 'orog.nc', 'surface_altitude')
         orog = orog[0, 0, :, :]
         LSM = iris.load_cube(ancil_path + 'new_mask.nc', lsm_name)
         LSM = LSM[0, 0, :, :]
     except iris.exceptions.ConstraintMismatchError:
         print('Files not found')
-    var_list = [melt_rate, melt_amnt, melt_flux, SW_down, cloud_cover, IWP, LWP, LW_down]
+    var_list = [melt_rate, melt_amnt, melt_flux, SW_down, cloud_cover, IWP, LWP, LW_down, foehn_freq]
     for i in var_list:
         real_lon, real_lat = rotate_data(i, 2, 3)
     vars_yr = {'melt_flux': melt_flux[:2920,0,:,:], 'melt_rate': melt_rate[:2920,0,:,:], 'melt_amnt': melt_amnt[:2920,0,:,:], 'SW_down': SW_down[:2920,0,:,:],  'LW_down': LW_down[:2920,0,:,:], 'cl_cover': cloud_cover[:2920, 0, :, :],
-               'IWP': IWP[:2920,0,:,:], 'LWP': LWP[:2920,0,:,:], 'orog': orog, 'lsm': LSM,'lon': real_lon, 'lat': real_lat, 'year': year}
+               'IWP': IWP[:2920,0,:,:], 'LWP': LWP[:2920,0,:,:], 'foehn_freq': foehn_freq, 'orog': orog, 'lsm': LSM,'lon': real_lon, 'lat': real_lat, 'year': year}
     return vars_yr
 
-surf= load_vars('2012')
-#surf = load_vars('1998-2017')
+#surf= load_vars('2012')
+surf = load_vars('1998-2017')
 
 year_list = ['1998', '1999', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017']
 
@@ -267,7 +268,7 @@ def correlation_maps(year_list, xvar, yvar):
 for i in ['cl_cover', 'SW_down', 'LW_down', 'IWP', 'LWP']:
     correlation_maps(year_list = year_list, xvar = 'melt_amnt', yvar = i)
 
-
+correlation_maps(['1998-2017'], xvar = 'melt_amnt', yvar = 'foehn_freq')
 
 def _cmap_discretize(cmap, N):
     if type(cmap) == str:
