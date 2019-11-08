@@ -30,6 +30,8 @@ from sklearn.metrics import mean_squared_error
 import datetime
 import metpy
 import metpy.calc
+#from cftime import datetime
+from datetime import datetime, time
 
 # Set up filepath
 if host == 'jasmin':
@@ -54,6 +56,7 @@ def load_vars(year, mn):
         SWdown = iris.load_cube( filepath +year+'_surface_SW_down_daymn.nc', 'surface_downwelling_shortwave_flux_in_air')
         HL = iris.load_cube( filepath +year+'_latent_heat_daymn.nc', 'Latent heat flux')
         HS = iris.load_cube( filepath +year+'_sensible_heat_daymn.nc', 'surface_upward_sensible_heat_flux')
+        #Etot = iris.load_cube(filepath + year + '_surface_E_tot_daymn.nc')
         melt = iris.load_cube( filepath +year+'_land_snow_melt_flux_daymn.nc', 'Snow melt heating flux')
     elif mn == 'no':
         Tair = iris.load_cube( filepath +year+'_Tair_1p5m.nc', 'air_temperature')
@@ -70,6 +73,7 @@ def load_vars(year, mn):
         SWdown = iris.load_cube( filepath +year+'_surface_SW_down.nc', 'surface_downwelling_shortwave_flux_in_air')
         HL = iris.load_cube( filepath +year+'_latent_heat.nc', 'Latent heat flux')
         HS = iris.load_cube( filepath +year+'_sensible_heat.nc', 'surface_upward_sensible_heat_flux')
+        #Etot = iris.load_cube(filepath + year + '_surface_E_tot.nc')
         melt = iris.load_cube(filepath  + year + '_land_snow_melt_flux.nc', 'Snow melt heating flux')
     Tair.convert_units('celsius')
     Ts.convert_units('celsius')
@@ -77,29 +81,37 @@ def load_vars(year, mn):
     sfc_P.convert_units('hPa')
     FF_10m = FF_10m[:,:,1:,:]
     v = v[:,:,1:,:]
-    var_list = [Tair, Ts, MSLP, sfc_P, FF_10m, RH, u, v, LWnet, SWnet, LWdown, SWdown, HL, HS]
+    # Flip direction of turbulent fluxes to match convention (positive towards surface)
+    HS = iris.analysis.maths.multiply(HS, -1.)
+    HL = iris.analysis.maths.multiply(HL, -1.)
+    var_list = [Tair, Ts, MSLP, sfc_P, FF_10m, RH, u, v, melt, LWnet, SWnet, LWdown, SWdown,  HL, HS]
     for i in var_list:
         real_lon, real_lat = rotate_data(i, 2, 3)
     WD = metpy.calc.wind_direction(u = u.data, v = v.data)
     WD = iris.cube.Cube(data = WD, standard_name='wind_from_direction')
-    Etot = LWnet.data + SWnet.data - HL.data - HS.data
-    Emelt_calc = np.copy(Etot)
-    Emelt_calc[Ts.data < -0.025] = 0
-    for turb in [HS, HL]:
-        turb.data = 0-turb.data
-    Emelt_calc = iris.cube.Cube(Emelt_calc)
-    Etot = iris.cube.Cube(Etot)
+    #Etot = LWnet.data + SWnet.data + HL.data + HS.data
+    #Etot = iris.cube.Cube(Etot)
+    SWup = iris.cube.Cube(data = SWnet.data - SWdown.data)
+    LWup = LWnet.data - LWdown.data
     vars_yr = {'Tair': Tair[:,0,:,:], 'Ts': Ts[:,0,:,:], 'MSLP': MSLP[:,0,:,:], 'sfc_P': sfc_P[:,0,:,:], 'FF_10m': FF_10m[:,0,:,:],
-               'RH': RH[:,0,:,:], 'WD': WD[:,0,:,:], 'LWnet': LWnet[:,0,:,:], 'SWnet': SWnet[:,0,:,:], 'SWdown': SWdown[:,0,:,:],
-               'LWdown': LWdown[:,0,:,:], 'HL': HL[:,0,:,:], 'HS': HS[:,0,:,:], 'Etot': Etot[:,0,:,:], 'Emelt': melt[:,0,:,:],
-               'lon': real_lon, 'lat': real_lat, 'year': year, 'Emelt_calc': Emelt_calc[:,0,:,:]}
+               'RH': RH[:,0,:,:], 'WD': WD[:,0,:,:], 'u': u[:,0,:,:], 'v': v[:,0,:,:], 'LWnet': LWnet[:,0,:,:], 'SWnet': SWnet[:,0,:,:], 'SWdown': SWdown[:,0,:,:],
+               'LWdown': LWdown[:,0,:,:], 'HL': HL[:,0,:,:], 'HS': HS[:,0,:,:], 'Emelt': melt[:,0,:,:], 'SWup': SWup[:,0,:,:], 'LWup': LWup[:,0,:,:],
+               'lon': real_lon, 'lat': real_lat, 'year': year}
     return vars_yr
 
-full_srs = load_vars('1998-2017', mn = 'no')
+
+#full_srs = load_vars('2016', mn = 'no')
+
+full_srs = load_vars('1998-2017', mn = 'yes')
+
+full_srs['Etot'] = iris.cube.Cube(data = (full_srs['LWnet'].data + full_srs['SWnet'].data + full_srs['HL'].data + full_srs['HS'].data))
+
+
+#mn_srs = load_vars('1998-2017', mn = 'yes')
 
 try:
-    LSM = iris.load_cube(filepath+'new_mask.nc', 'LAND MASK (No halo) (LAND=TRUE)')
-    orog = iris.load_cube(filepath+'orog.nc', 'surface_altitude')
+    LSM = iris.load_cube(filepath+'new_mask.nc')
+    orog = iris.load_cube(filepath+'orog.nc')
     orog = orog[0,0,:,:]
     LSM = LSM[0,0,:,:]
 except iris.exceptions.ConstraintMismatchError:
@@ -109,8 +121,8 @@ def load_AWS(station, year):
     ## --------------------------------------------- SET UP VARIABLES ------------------------------------------------##
     ## Load data from AWS 14 and AWS 15 for January 2011
     print('\nDayum grrrl, you got a sweet AWS...')
-    os.chdir('/data/clivarm/wip/ellgil82/AWS/')
-    for file in os.listdir('/data/clivarm/wip/ellgil82/AWS/'):
+    os.chdir(filepath)
+    for file in os.listdir(filepath):
         if fnmatch.fnmatch(file, '%(station)s*' % locals()):
             AWS_srs = pd.read_csv(str(file), na_values = -9999, header = 0)
     # Calculate date, given list of years and day of year
@@ -128,7 +140,7 @@ def load_AWS(station, year):
         hrs = int(i)                 # will now be 1 (hour)
         mins = int((i-hrs)*60)       # will now be 4 minutes
         secs = int(0 - hrs*60*60 + mins*60) # will now be 30
-        j = datetime.time(hour = hrs, minute=mins)
+        j = time(hour = hrs, minute=mins)
         time_list.append(j)
     case['Time'] = time_list
     case['datetime'] = case.apply(lambda r : pd.datetime.combine(r['Date'],r['Time']),1)
@@ -137,39 +149,200 @@ def load_AWS(station, year):
     case['FF_10m'][case['FF_10m'] < 0.] = np.nan
     case['WD'] = case['WD'].interpolate() # interpolate missing values
     case['FF_10m'] = case['FF_10m'].interpolate()
-    if station == 'AWS14_SEB_2009-2017_norp':
-        case = case.tail(1).append(case.iloc[:-1])
+    daily_Tair = case.resample('D')['Tair_2m']
+    case['Tair_min'] = daily_Tair.transform('min')
+    case['Tair_max'] = daily_Tair.transform('max')
+    u, v = metpy.calc.wind_components(case['FF_10m'], case['WD'])
+    case['u'] = u
+    case['v'] = v
+    try:
+        case['Tsobs'][case['Tsobs'] > -0.025] = 0.
+        daily_Ts = case.resample('D')['Tsobs']
+        case['Ts_min'] = daily_Ts.transform('min')
+        case['Ts_max'] = daily_Ts.transform('max')
+    except KeyError:
+        print('Ts not available at AWS 15')
+    if station == 'AWS18_SEB_2014-2017_norp.csv':
+        AWS_srs = AWS_srs[::2]
     # Calculate months
     months = [g for n, g in case.groupby(pd.TimeGrouper('M'))]
     DJF = pd.concat((months[11], months[0], months[1]), axis=0)
     MAM = pd.concat((months[2], months[3], months[4]), axis=0)
     JJA = pd.concat((months[5], months[6], months[7]), axis=0)
     SON = pd.concat((months[8], months[9], months[10]), axis=0)
-    if host == 'jasmin':
-        os.chdir('/group_workspaces/jasmin4/bas_climate/users/ellgil82/OFCAP/proc_data/')
-    elif host == 'bsl':
-        os.chdir('/data/mac/ellgil82/hindcast/output/')
     return case, DJF, MAM, JJA, SON
 
-AWS14_SEB, DJF_14, MAM_14, JJA_14, SON_14 = load_AWS('AWS14_SEB_2009-2017_norp', '2011')
-#AWS15_SEB = load_AWS('AWS15_hourly_2009-2014.csv', '2014')
-AWS17_SEB, DJF_17, MAM_17, JJA_17, SON_17 = load_AWS('AWS17_SEB_2011-2015_norp', '2011')
-et
+#ANN_18, DJF, MAM, JJA, SON = load_AWS(station = 'AWS18_SEB_2014-2017_norp.csv', year = '2016')
 
-file_dict = {'surface_temperature': '_Ts.nc',
-             'air_temperature': '_Tair_1p5m.nc',
-             'wind_speed': '_FF_10m.nc',
-             'x wind component (with respect to grid)': '_u_10m.nc',
-             'y wind component (with respect to grid)': '_v_10m.nc',
-             'relative_humidity': '_RH_1p5m.nc',
-             'surface_air_pressure': '_sfc_P.nc',
-             'air_pressure_at_sea_level': '_MSLP.nc',
-             'surface_net_downward_longwave_flux': '_surface_LW_net.nc',
-             'Net short wave radiation flux': '_surface_SW_net.nc',
-             'IR down': '_surface_LW_down.nc',
-             'surface_downwelling_shortwave_flux_in_air': '_surface_SW_down.nc',
-             'Latent heat flux': '_latent_heat.nc',
-             'surface_upward_sensible_heat_flux': '_sensible_heat.nc'}
+def load_all_AWS(station, daily):
+	## --------------------------------------------- SET UP VARIABLES ------------------------------------------------##
+	## Load data from AWS 14 and AWS 15 for January 2011
+    print('\nDayum grrrl, you got a sweet AWS...')
+    if host == 'jasmin':
+        os.chdir(filepath)
+        for file in os.listdir(filepath):
+            if fnmatch.fnmatch(file, '%(station)s*' % locals()):
+                AWS_srs = pd.read_csv(str(file), na_values=-9999, header=0)
+    elif host == 'bsl':
+        os.chdir('/data/clivarm/wip/ellgil82/AWS/')
+        for file in os.listdir('/data/clivarm/wip/ellgil82/AWS/'):
+            if fnmatch.fnmatch(file, '%(station)s*' % locals()):
+                AWS_srs = pd.read_csv(str(file), na_values = -9999, header = 0)
+    # Calculate date, given list of years and day of year
+    date_list = compose_date(AWS_srs['year'], days=AWS_srs['day'])
+    AWS_srs['Date'] = date_list
+    # Set date as index
+    AWS_srs.index = AWS_srs['Date']
+    # Calculate actual time from decimal DOY (seriously, what even IS that format?)
+    try:
+        AWS_srs['time'] = 24.*(AWS_srs['Time'] - AWS_srs['day'])
+        time_list = []
+        for i in AWS_srs['time']:
+            hrs = int(i)                 # will now be 1 (hour)
+            mins = int((i-hrs)*60)       # will now be 4 minutes
+            secs = int(0 - hrs*60*60 + mins*60) # will now be 30
+            j = time(hour = hrs, minute=mins)
+            time_list.append(j)
+        AWS_srs['Time'] = time_list
+    except TypeError:
+        print('Got time already m9')
+        AWS_srs['Time'] = pd.to_datetime(AWS_srs['Time'], format='%H:%M:%S').dt.time
+    print('\nconverting times...')
+    # Convert times so that they can be plotted
+    AWS_srs['datetime'] = AWS_srs.apply(lambda r : pd.datetime.combine(r['Date'],r['Time']),1)
+    try:
+        AWS_srs['E'] = AWS_srs['LWnet_corr'].values + AWS_srs['SWnet_corr'].values + AWS_srs['Hlat'].values + AWS_srs['Hsen'].values - AWS_srs['Gs'].values
+    except:
+        print('No full SEB \'ere pal...')
+    AWS_srs['WD'][AWS_srs['WD'] < 0.] = np.nan
+    AWS_srs['FF_10m'][AWS_srs['FF_10m'] < 0.] = np.nan
+    AWS_srs['WD'] = AWS_srs['WD'].interpolate() # interpolate missing values
+    AWS_srs['FF_10m'] = AWS_srs['FF_10m'].interpolate()
+    AWS_srs['WD'][AWS_srs['WD'] == 0.] = np.nan
+    u, v = metpy.calc.wind_components(AWS_srs['FF_10m'], AWS_srs['WD'])
+    AWS_srs['u'] = u
+    AWS_srs['v'] = v
+    if station == 'AWS18_SEB_2014-2017_norp.csv':
+        AWS_srs = AWS_srs[::2]
+    if station == 'AWS15_hourly_2009-2014.csv':
+        AWS_srs['P'][ AWS_srs['P'] < 800.] = np.nan
+        for j in ['SWin', 'SWout', 'LWin', 'LWout']:
+            AWS_srs[j][AWS_srs[j] < -999.] = np.nan
+            AWS_srs[j].interpolate(method = 'linear', limit_direction = 'both') # linearly interpolate missing values
+        AWS_srs['SWnet'] = AWS_srs['SWin'] - AWS_srs['SWout']
+        AWS_srs['LWnet'] = AWS_srs['LWin'] - AWS_srs['LWout']
+    else:
+        AWS_srs['Tsobs'][AWS_srs['Tsobs'] > -0.025] = 0.
+        # Linearly interpolate missing values
+    AWS_srs.interpolate('linear', limit_direction = 'both')
+        # Calculate daily means
+    if daily == 'yes':
+        AWS_srs = AWS_srs.groupby(AWS_srs.index).mean()
+    if station == 'AWS14_SEB_2009-2017_norp.csv':
+        AWS_srs = AWS_srs[1:]
+    daily_Tair = AWS_srs.resample('D')['Tair_2m']
+    AWS_srs['Tair_min'] = daily_Tair.transform('min')
+    AWS_srs['Tair_max'] = daily_Tair.transform('max')
+    try:
+        daily_Ts = AWS_srs.resample('D')['Tsobs']
+        AWS_srs['Ts_min'] = daily_Ts.transform('min')
+        AWS_srs['Ts_max'] = daily_Ts.transform('max')
+    except KeyError:
+        print('Ts not available at AWS 15')
+    # Calculate months
+    months = [g for n, g in AWS_srs.groupby(pd.TimeGrouper('M'))]
+    DJF = pd.concat((months[11], months[0], months[1]))
+    MAM = pd.concat((months[2], months[3], months[4]))
+    JJA = pd.concat((months[5], months[6], months[7]))
+    SON = pd.concat((months[8], months[9], months[10]))
+    if host == 'jasmin':
+        os.chdir('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/alloutput/')
+    elif host == 'bsl':
+        os.chdir('/data/mac/ellgil82/hindcast/output/')
+    return AWS_srs, DJF, MAM, JJA, SON
+
+print('\nLoading in AWS data\n')
+
+ANN_14, DJF_14, MAM_14, JJA_14, SON_14 = load_all_AWS('AWS14_SEB_2009-2017_norp.csv', daily = 'yes')
+ANN_15, DJF_15, MAM_15, JJA_15, SON_15 = load_all_AWS('AWS15_hourly_2009-2014.csv', daily   = 'yes')
+ANN_17, DJF_17, MAM_17, JJA_17, SON_17 = load_all_AWS('AWS17_SEB_2011-2015_norp.csv', daily = 'yes')
+ANN_18, DJF_18, MAM_18, JJA_18, SON_18 = load_all_AWS('AWS18_SEB_2014-2017_norp.csv', daily = 'yes')
+
+def make_model_timesrs(model_var, freq):
+    try:
+        Timesrs = model_var['Ts'].coord('t').points
+    except:
+        Timesrs = model_var['Ts'].coord('time').points
+    Timesrs = Timesrs + 0.5 # account for offset from initialisation time (t-12 hr), then + 1 to map index day[0] onto day 1.
+    df = pd.DataFrame()
+    if model_var['year'] == '1998-2017':
+        df['datetime'] = pd.date_range(datetime(1998,1,1,0,0,0),datetime(2017,12,31,23,59,59), freq = freq)
+    else:
+        yrs = np.repeat(np.int(model_var['year']), len(Timesrs))
+        date_list = compose_date(yrs, days=Timesrs)
+        time_list = [time(0,0,0), time(3,0,0), time(6,0,0), time(9,0,0), time(12,0,0), time(15,0,0), time(18,0,0), time(21,0,0)]
+        time_list = np.tile(np.asarray(time_list), len(Timesrs)/8)
+        df['times'] = pd.Series(time_list)
+        df['dates'] = pd.Series(date_list)
+        df['datetime'] = df.apply(lambda r : pd.datetime.combine(r['dates'],r['times']),1)
+    model_var['Timesrs'] = df['datetime']
+
+def trim_model(model_var, AWS_var, daily):
+    #load model vars to match AWS
+    if daily == 'yes':
+        freq = 'D'
+    else:
+        freq = '3H'
+    make_model_timesrs(model_var, freq)
+    Timesrs = model_var['Timesrs']
+    # find where times match
+    if daily == 'yes':
+        start = np.where(Timesrs == pd.to_datetime(AWS_var.index)[0])
+        end = np.where(Timesrs == pd.to_datetime(AWS_var.index)[-1])
+    else:
+        start = np.where(Timesrs == pd.to_datetime(AWS_var['datetime'])[0])
+        if start[0] > 0:
+            start = start
+        else:
+            start = np.where(Timesrs == pd.to_datetime(AWS_var['datetime'])[1])
+            if start[0] > 0:
+                start = start
+        end = np.where(Timesrs == pd.to_datetime(AWS_var['datetime'])[-1])
+        if end[0] > 0:
+            end = end
+        else:
+            end = np.where(Timesrs == pd.to_datetime(AWS_var['datetime'])[-2])
+            if end[0] > 0:
+                end = end
+            else:
+                end = np.where(Timesrs == pd.to_datetime(AWS_var['datetime'])[-3])
+                if end[0] > 0:
+                    end = end
+                else:
+                    end = np.where(Timesrs == pd.to_datetime(AWS_var['datetime'][-1]).replace(minute = AWS_var['datetime'][-1].minute +1))
+                    if end[0] > 0:
+                        end = end
+                    else:
+                        end = np.where(Timesrs == pd.to_datetime(AWS_var['datetime'][-2]).replace(minute=AWS_var['datetime'][-2].minute + 1))
+                        if end[0] > 0:
+                            end = end
+    new_vars = {}
+    new_vars['year'] = '1998-2017'
+    for j in ['Tair','Ts', 'MSLP', 'sfc_P', 'FF_10m', 'u', 'v', 'RH', 'WD', 'LWnet', 'SWnet', 'SWdown', 'LWdown', 'LWup', 'SWup', 'HL', 'HS', 'Etot', 'Emelt', 'Timesrs']:
+        new_vars[j] = model_var[j][start[0][0]:end[0][0]]
+    new_vars['start'] = start[0][0]
+    new_vars['end'] = end[0][0]
+    return new_vars
+
+srs_17_trimmed = trim_model(model_var = full_srs, AWS_var = ANN_17, daily = 'yes')
+srs_18_trimmed = trim_model(model_var = full_srs, AWS_var = ANN_18, daily = 'yes')
+srs_14_trimmed = trim_model(model_var = full_srs, AWS_var = ANN_14, daily = 'yes')
+srs_15_trimmed = trim_model(model_var = full_srs, AWS_var = ANN_15, daily = 'yes')
+
+lon_index14, lat_index14, = find_gridbox(-67.01, -61.03, full_srs['lat'], full_srs['lon'])
+lon_index15, lat_index15, = find_gridbox(-67.34, -62.09, full_srs['lat'], full_srs['lon'])
+lon_index17, lat_index17, = find_gridbox(-65.93, -61.85, full_srs['lat'], full_srs['lon'])
+lon_index18, lat_index18, = find_gridbox(-66.48, -63.37, full_srs['lat'], full_srs['lon'])
 
 lat_dict = {'AWS14': lat_index14,
             'AWS15': lat_index15,
@@ -181,9 +354,51 @@ lon_dict = {'AWS14': lon_index14,
             'AWS17': lon_index17,
             'AWS18': lon_index18}
 
-station_dict = {'AWS14_SEB_2009-2017_norp': 'AWS14',
+station_dict = {'AWS14_SEB_2009-2017_norp.csv': 'AWS14',
              'AWS15_hourly_2009-2014.csv': 'AWS15',
-              'AWS17_SEB_2011-2015_norp': 'AWS17'  }
+              'AWS17_SEB_2011-2015_norp.csv': 'AWS17',
+                'AWS18_SEB_2014-2017_norp.csv': 'AWS18'}
+
+
+print('\nTrimming model data to match observation period\n')
+
+#srs_17_trimmed = trim_model(model_var = full_srs, AWS_var = ANN_17, daily = 'no')
+#srs_18_trimmed = trim_model(model_var = full_srs, AWS_var = ANN_18, daily = 'no')
+#srs_14_trimmed = trim_model(model_var = full_srs, AWS_var = ANN_14, daily = 'no')
+#srs_15_trimmed = trim_model(model_var = full_srs, AWS_var = ANN_15, daily = 'no')
+
+# Calculate daily mins and maxs for each AWS
+def calc_minmax(station, trimmed_srs, daily):
+    df = pd.DataFrame()
+    df['mod_T'] = np.mean(trimmed_srs['Tair'].data[:,lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1, lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2))
+    Timesrs = pd.date_range(datetime(1998,1,1,0,0,0),datetime(2017,12,31,23,59,59), freq = '3H')
+    #Timesrs = pd.date_range(datetime(2016,1,1,0,0,0),datetime(2017,1,1,0,0,0), freq = '3H')
+    Timesrs = Timesrs[trimmed_srs['start']:trimmed_srs['end']]
+    df.index = Timesrs
+    daily_T = df.resample('D')['mod_T']
+    Tmax = daily_T.transform('max')
+    Tmin = daily_T.transform('min')
+    trimmed_srs['Tmin'] = Tmin
+    trimmed_srs['Tmax'] = Tmax
+    return Tmax, Tmin
+
+
+print('\nCalculating mins/maxes\n')
+
+Tmax14, Tmin14 = calc_minmax('AWS14_SEB_2009-2017_norp.csv', srs_14_trimmed, daily = 'yes')
+Tmax15, Tmin15 = calc_minmax('AWS15_hourly_2009-2014.csv', srs_15_trimmed, daily = 'yes')
+Tmax17, Tmin17 = calc_minmax('AWS17_SEB_2011-2015_norp.csv', srs_17_trimmed, daily = 'yes')
+Tmax18, Tmin18 = calc_minmax('AWS18_SEB_2014-2017_norp.csv', srs_18_trimmed, daily = 'yes')
+
+mins = {'AWS14': Tmin14,
+            'AWS15': Tmin15,
+            'AWS17': Tmin17,
+            'AWS18': Tmin18}
+
+maxes = {'AWS14': Tmax14,
+            'AWS15': Tmax15,
+            'AWS17': Tmax17,
+            'AWS18': Tmax18}
 
 def seas_mean(year_list, location):
     for each_year in year_list:
@@ -225,31 +440,84 @@ def seas_mean(year_list, location):
         #DJF_means[each_var] = DJF_means[each_var] / len(year_list)
     return seas_means, seas_vals
 
-seas_means, seas_vals = seas_mean(['2011'], 'AWS17')
-seas_means, seas_vals = seas_mean(['2011'], 'AWS14')
-
-def calc_bias(year, station):
+def calc_bias(trimmed_vars, AWS_total, station, daily):
     # Calculate bias of time series
     # Forecast error
-    AWS_var, DJF, MAM, JA, SON = load_AWS(station, year)
-    AWS_var = AWS_var[::3]
-    vars_yr = load_vars(year, mn = 'no')
-    surf_met_obs = [AWS_var['Tsobs'], AWS_var['Tair_2m'], AWS_var['RH'], AWS_var['FF_10m'], AWS_var['pres'], AWS_var['WD'], AWS_var['SWin_corr'], AWS_var['LWin'], AWS_var['SWnet_corr'], AWS_var['LWnet_corr'],
-                    AWS_var['Hsen'], AWS_var['Hlat'], AWS_var['melt_energy'],AWS_var['melt_energy']]
-    surf_mod = [np.mean(vars_yr['Ts'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
-                np.mean(vars_yr['Tair'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1],axis = (1,2)),
-                np.mean(vars_yr['RH'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
-                np.mean(vars_yr['FF_10m'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
-                np.mean(vars_yr['sfc_P'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
-                np.mean(vars_yr['WD'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
-                np.mean(vars_yr['SWdown'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
-                np.mean(vars_yr['LWdown'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
-                np.mean(vars_yr['SWnet'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
-                np.mean(vars_yr['LWnet'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
-                np.mean(vars_yr['HS'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
-                np.mean(vars_yr['HL'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
-                np.mean(vars_yr['Emelt'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
-                np.mean(vars_yr['Emelt_calc'].data[:, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2))]
+    vars_yr = trimmed_vars
+    if daily == 'yes':
+        AWS_var = AWS_total.groupby(AWS_total.index).mean()
+    elif daily == 'no':
+        AWS_var = AWS_total[::3]
+    length = min(trimmed_vars['Tair'].shape[0], AWS_var['Tair_2m'].shape[0])
+    if station == 'AWS15_hourly_2009-2014.csv':
+        surf_met_obs = [AWS_var['Tair_2m'][:length], AWS_var['Tair_max'][:length], AWS_var['Tair_min'][:length], AWS_var['RH'][:length],
+                        AWS_var['FF_10m'][:length], AWS_var['P'][:length], AWS_var['u'][:length], AWS_var['v'][:length],
+                        AWS_var['SWin'][:length],  AWS_var['LWin'][:length], AWS_var['SWnet'][:length],
+                        AWS_var['LWnet'][:length]]
+        surf_mod = [np.mean(vars_yr['Tair'].data[:length,
+                            lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                            lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    mins[station_dict[station]],
+                    maxes[station_dict[station]],
+                    np.mean(vars_yr['RH'].data[:length,
+                            lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                            lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(vars_yr['FF_10m'].data[:length,
+                            lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                            lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(vars_yr['sfc_P'].data[:length,
+                            lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                            lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(vars_yr['u'].data[:length,
+                            lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                            lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(vars_yr['v'].data[:length,
+                            lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                            lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(vars_yr['SWdown'].data[:length,
+                            lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                            lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(vars_yr['LWdown'].data[:length,
+                            lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                            lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(vars_yr['SWnet'].data[:length,
+                            lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                            lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(vars_yr['LWnet'].data[:length,
+                            lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                            lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2))]
+        idx = ['Tair', 'Tmin', 'Tmax', 'RH', 'FF', 'P', 'u', 'v', 'Swdown', 'LWdown', 'SWnet', 'LWnet']
+    else:
+        surf_met_obs = [AWS_var['Tsobs'][:length], AWS_var['Tair_2m'][:length], AWS_var['Tair_min'], AWS_var['Tair_max'], AWS_var['RH'][:length], AWS_var['FF_10m'][:length], AWS_var['pres'][:length], AWS_var['u'][:length], AWS_var['v'][:length], AWS_var['SWin_corr'][:length],
+                        AWS_var['LWin'][:length], AWS_var['SWnet_corr'][:length], AWS_var['LWnet_corr'][:length], AWS_var['Hsen'][:length], AWS_var['Hlat'][:length], AWS_var['E'][:length], AWS_var['melt_energy'][:length]]
+        surf_mod = [np.mean(vars_yr['Ts'].data[:length, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                    np.mean(vars_yr['Tair'].data[:length, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1],axis = (1,2)),
+                    mins[station_dict[station]],
+                    maxes[station_dict[station]],
+                    np.mean(vars_yr['RH'].data[:length, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                    np.mean(vars_yr['FF_10m'].data[:length, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                    np.mean(vars_yr['sfc_P'].data[:length, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                    np.mean(vars_yr['u'].data[:length, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                    np.mean(vars_yr['v'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1, lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(vars_yr['SWdown'].data[:length, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                    np.mean(vars_yr['LWdown'].data[:length, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                    np.mean(vars_yr['SWnet'].data[:length, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                    np.mean(vars_yr['LWnet'].data[:length, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2)),
+                    (np.mean(vars_yr['HS'].data[:length, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2))*-1.),
+                    (np.mean(vars_yr['HL'].data[:length, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2))*-1.),
+                    np.mean(vars_yr['Etot'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(vars_yr['Emelt'].data[:length, lat_dict[station_dict[station]]-1:lat_dict[station_dict[station]]+1, lon_dict[station_dict[station]]-1:lon_dict[station_dict[station]]+1], axis = (1,2))]
+        idx = ['Ts', 'Tair', 'Tmin', 'Tmax', 'RH', 'FF', 'P', 'u', 'v', 'Swdown', 'LWdown', 'SWnet', 'LWnet', 'HS', 'HL', 'Etot', 'Emelt']
+        melt_nonzero = np.copy(surf_met_obs[-1])
+        melt_nonzero[melt_nonzero == 0.] = np.nan
+        AWS_nonz_mn = np.nanmean(melt_nonzero)
+        mod_melt_nonzero = np.copy(surf_mod[-2])
+        mod_melt_nonzero[mod_melt_nonzero == 0.] = np.nan
+        mod_nonz_mn = np.nanmean(mod_melt_nonzero)
+        calc_mod_melt_nonzero = np.copy(surf_mod[-1])
+        calc_mod_melt_nonzero[calc_mod_melt_nonzero == 0.] = np.nan
+        calc_mod_nonz_mn = np.nanmean(calc_mod_melt_nonzero)
+        nonz_bias = np.nanmean(mod_melt_nonzero - melt_nonzero)
     mean_obs = []
     mean_mod = []
     bias = []
@@ -267,7 +535,6 @@ def calc_bias(year, station):
         mse = mean_squared_error(y_true = surf_met_obs[i], y_pred = surf_mod[i])
         rmse = np.sqrt(mse)
         rmses.append(rmse)
-        idx = ['Ts', 'Tair', 'RH', 'FF', 'P', 'WD', 'Swdown', 'LWdown', 'SWnet', 'LWnet', 'HS', 'HL', 'Emelt', 'Emelt']
     df = pd.DataFrame(index = idx)
     df['obs mean'] = pd.Series(mean_obs, index = idx)
     df['mod mean'] = pd.Series(mean_mod, index = idx)
@@ -279,112 +546,205 @@ def calc_bias(year, station):
         slope, intercept, r2, p, sterr = scipy.stats.linregress(surf_met_obs[i], surf_mod[i])
         print(idx[i])
         print('\nr2 = %s\n' % r2)
-    print('RMSE/bias = \n\n\n')
-    melt_nonzero = np.copy(surf_met_obs[-1])
-    melt_nonzero[melt_nonzero == 0.] = np.nan
-    AWS_nonz_mn = np.nanmean(melt_nonzero)
-    mod_melt_nonzero = np.copy(surf_mod[-2])
-    mod_melt_nonzero[mod_melt_nonzero == 0.] = np.nan
-    mod_nonz_mn = np.nanmean(mod_melt_nonzero)
-    calc_mod_melt_nonzero = np.copy(surf_mod[-1])
-    calc_mod_melt_nonzero[calc_mod_melt_nonzero == 0.] = np.nan
-    calc_mod_nonz_mn = np.nanmean(calc_mod_melt_nonzero)
-    nonz_bias = np.nanmean(mod_melt_nonzero - melt_nonzero)
-    print(' observed mean: \n%s\n' % AWS_nonz_mn)
-    print(' model mean: \n%s\n' % mod_nonz_mn)
-    print(' calculated model mean: \n%s\n' % calc_mod_nonz_mn)
-    df.to_csv('/data/mac/ellgil82/hindcast/'+ year + '_' + station_dict[station] + '_bias_RMSE.csv') # change to be station-specific
+    if daily == 'yes':
+        df.to_csv(filepath + trimmed_vars['year'] + '_' + station_dict[station] + '_bias_RMSE_daily_mean.csv') # change to be station-specific
+    elif daily == 'no':
+        df.to_csv(filepath + trimmed_vars['year'] + '_' + station_dict[station] + '_bias_RMSE.csv')
     print(df)
 
-calc_bias('2011', station = 'AWS14_SEB_2009-2017_norp')
-calc_bias('2011', station = 'AWS14_SEB_2009-2017_norp')
-#calc_bias('2014', station = 'AWS17_SEB_2011-2015_norp')
-#calc_bias('2012', station = 'AWS17_SEB_2011-2015_norp')
+#calc_bias(srs_14_trimmed, ANN_14, station = 'AWS14_SEB_2009-2017_norp.csv', daily = 'yes')
+#ANN_15 = ANN_15.interpolate('linear', limit_direction = 'both')
+#calc_bias(srs_15_trimmed, ANN_15, station = 'AWS15_hourly_2009-2014.csv', daily = 'yes')
+#calc_bias(srs_17_trimmed, ANN_17, station = 'AWS17_SEB_2011-2015_norp.csv', daily = 'yes')
+#ANN_18 = ANN_18.interpolate('linear', limit_direction = 'both')
+#calc_bias(srs_18_trimmed, ANN_18, station = 'AWS18_SEB_2014-2017_norp.csv', daily = 'yes')
 
-def seas_bias(year, station):
-    # then for each variable
-    # Calculate bias of time series
-    # Forecast error
-    # Load AWS data, inc seasons
-    AWS_var, AWS_DJF, AWS_MAM, AWS_JJA, AWS_SON = load_AWS(station, year)
-    AWS_var = AWS_var[::3]
-    AWS_DJF = AWS_DJF[::3]
-    AWS_MAM = AWS_MAM[::3]
-    AWS_JJA = AWS_JJA[::3]
-    AWS_SON = AWS_SON[::3]
-    for each_seas, each_mod_seas in zip([AWS_DJF, AWS_MAM, AWS_JJA, AWS_SON], ['DJF', 'MAM', 'JJA', 'SON']):
-        surf_met_obs = [each_seas['Tsobs'], each_seas['Tair_2m'],each_seas['RH'], each_seas['FF_10m'], each_seas['pres'],
-                        each_seas['WD'], each_seas['SWin_corr'], each_seas['LWin'], each_seas['SWnet_corr'],each_seas['LWnet_corr'],
-                        each_seas['Hsen'], each_seas['Hlat'], each_seas['melt_energy'], each_seas['melt_energy']]
-        # Load in model cubes
-        os.chdir(filepath + year + '/')
-        cube_list = iris.load(each_mod_seas + '_' + year + '*.nc')
-        seas_cubes = []
-        for i in range(len(cube_list)):
-            cube_list[i] = cube_list[i][:, 0, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
-                           lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1]
-            if cube_list[i].long_name == 'Pressure':
-                cube_list[i].convert_units('hPa')
-            elif cube_list[i].long_name == 'Temperature T':
-                cube_list[i].convert_units('celsius')
-            elif cube_list[i].long_name == 'Sensible heat flux' or cube_list[i].long_name == 'Latent heat flux':
-                cube_list[i].data = 0 - cube_list[i].data
-            seas_cubes.append(np.mean(cube_list[i].data, axis=(1, 2)))
-        WD =  metpy.calc.wind_direction(u =seas_cubes[5], v = seas_cubes[6])
-        Etot = seas_cubes[4]+seas_cubes[13]+seas_cubes[15]+seas_cubes[0]
-        Emelt_calc = np.copy(Etot)
-        Emelt_calc[seas_cubes[14] < -0.025] = 0
-        seas_cubes.append(WD.magnitude)
-        seas_cubes.append(Emelt_calc)
-        surf_mod = [seas_cubes[14], seas_cubes[8], seas_cubes[10], seas_cubes[16], seas_cubes[11], seas_cubes[17], seas_cubes[12], seas_cubes[3], seas_cubes[4], seas_cubes[13], seas_cubes[15], seas_cubes[0], seas_cubes[2], seas_cubes[18]]
-        mean_obs = []
-        mean_mod = []
-        bias = []
-        errors = []
-        r2s = []
+#inlet_df = pd.concat([AWS18_df, AWS17_df])
+#inlet_df = inlet_df.groupby(inlet_df.index).mean()
+
+#calc_bias(srs_14_trimmed, ANN_14, station = 'AWS14_SEB_2009-2017_norp.csv', daily = 'no')
+#ANN_15 = ANN_15.interpolate('linear', limit_direction = 'both')
+#calc_bias(srs_15_trimmed, ANN_15, station = 'AWS15_hourly_2009-2014.csv', daily = 'no')
+#calc_bias(srs_17_trimmed, ANN_17, station = 'AWS17_SEB_2011-2015_norp.csv', daily = 'no')
+#ANN_18 = ANN_18.interpolate('linear', limit_direction = 'both')
+#calc_bias(srs_18_trimmed, ANN_18, station = 'AWS18_SEB_2014-2017_norp.csv', daily = 'no')
+
+
+def calc_seas_bias(vars_yr, AWS_var, station, daily):
+    # reload AWS data
+    os.chdir(filepath)
+    ANN, DJF, MAM, JJA, SON = load_all_AWS(station, daily)
+    #ANN = ANN[::3] #subsample hourly data
+    length = min(vars_yr['Tair'].shape[0], AWS_var['Tair_2m'].shape[0])
+    if station == 'AWS15_hourly_2009-2014.csv':
+        surf_met_obs = [AWS_var['Tair_2m'][:length].values, AWS_var['Tair_min'][:length].values, AWS_var['Tair_max'][:length].values,
+                        AWS_var['RH'][:length].values, AWS_var['FF_10m'][:length].values, AWS_var['P'][:length].values,
+                        AWS_var['u'][:length].values, AWS_var['v'][:length].values, AWS_var['SWin'][:length].values,
+                        AWS_var['SWout'][:length].values* -1., AWS_var['SWnet'][:length].values, AWS_var['LWin'][:length].values,
+                        AWS_var['LWout'][:length].values* -1.,  AWS_var['LWnet'][:length].values, AWS_var.index.values]
+        surf_mod = [np.mean(vars_yr['Tair'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                    lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+            mins[station_dict[station]],
+            maxes[station_dict[station]],
+            np.mean(vars_yr['RH'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                    lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+            np.mean(
+                vars_yr['FF_10m'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+            np.mean(
+                vars_yr['sfc_P'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+            np.mean(vars_yr['u'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                    lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+            np.mean(vars_yr['v'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                    lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+            np.mean(
+                vars_yr['SWdown'].data[:length,
+                lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+            np.mean(
+                vars_yr['SWup'].data[:length,
+                lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+            np.mean(
+                vars_yr['SWnet'].data[:length,
+                lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+            np.mean(
+                vars_yr['LWdown'].data[:length,
+                lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+            np.mean(
+                vars_yr['LWup'][:length,
+                lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+            np.mean(
+                vars_yr['LWnet'].data[:length,
+                lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+            vars_yr['Timesrs']]
+        idx = ['Tair', 'Tmin', 'Tmax', 'RH', 'FF', 'P', 'u', 'v', 'Swdown', 'SWup', 'SWnet', 'LWdown', 'LWup', 'LWnet', 'datetime']
+    else:
+        surf_met_obs = [AWS_var['Tsobs'][:length].values, AWS_var['Tair_2m'][:length].values, AWS_var['Tair_min'][:length].values, AWS_var['Tair_max'][:length].values,
+                        AWS_var['RH'][:length].values, AWS_var['FF_10m'][:length].values, AWS_var['pres'][:length].values, AWS_var['u'][:length].values,
+                        AWS_var['v'][:length].values, AWS_var['SWin_corr'][:length].values, AWS_var['SWout'][:length].values* -1., AWS_var['SWnet_corr'][:length].values,
+                        AWS_var['LWin'][:length].values, AWS_var['LWout_corr'][:length].values* -1., AWS_var['LWnet_corr'][:length].values,
+                        AWS_var['Hsen'][:length].values, AWS_var['Hlat'][:length].values, AWS_var['E'][:length].values,
+                        AWS_var['melt_energy'][:length].values, AWS_var.index.values]
+        surf_mod = [np.mean(vars_yr['Ts'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                            lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(vars_yr['Tair'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                        lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    mins[station_dict[station]],
+                    maxes[station_dict[station]],
+                    np.mean(vars_yr['RH'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                            lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(
+                        vars_yr['FF_10m'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                        lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(
+                        vars_yr['sfc_P'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                        lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(vars_yr['u'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                            lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(vars_yr['v'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                            lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(
+                        vars_yr['SWdown'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                        lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(
+                        vars_yr['SWup'].data[:length,
+                        lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                        lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(
+                        vars_yr['SWnet'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                        lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(
+                        vars_yr['LWdown'].data[:length,
+                        lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                        lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(
+                        vars_yr['LWup'][:length,  (lat_dict[station_dict[station]] - 1):(lat_dict[station_dict[station]] + 1),
+                        (lon_dict[station_dict[station]] - 1):(lon_dict[station_dict[station]] + 1)], axis=(1, 2)),
+                    np.mean(
+                        vars_yr['LWnet'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                        lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    (np.mean(
+                        vars_yr['HS'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                        lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2))),
+                    (np.mean(
+                        vars_yr['HL'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                        lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2))),
+                    np.mean(
+                        vars_yr['Etot'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                        lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    np.mean(
+                        vars_yr['Emelt'].data[:length, lat_dict[station_dict[station]] - 1:lat_dict[station_dict[station]] + 1,
+                        lon_dict[station_dict[station]] - 1:lon_dict[station_dict[station]] + 1], axis=(1, 2)),
+                    vars_yr['Timesrs']]
+        idx = ['Ts', 'Tair', 'Tmin', 'Tmax', 'RH', 'FF', 'P', 'u', 'v', 'Swdown', 'SWup',  'SWnet', 'LWdown', 'LWup', 'LWnet', 'HS', 'HL', 'Etot', 'Emelt', 'datetime']
+    # load time series into dateframe
+    obs_df = pd.DataFrame(surf_met_obs)
+    mod_df = pd.DataFrame(surf_mod)
+    #mod_df = mod_df[:, :surf_met_obs[0].shape[0]]
+    obs_df.index = idx
+    mod_df.index = idx
+    obs_df = obs_df.transpose()
+    mod_df = mod_df.transpose()
+    # index by datetime
+    mod_df.index = vars_yr['Timesrs']
+    obs_df.index = AWS_var.index
+    # group into seasons
+    months = [g for n, g in obs_df.groupby(pd.TimeGrouper('M'))]
+    obs_DJF = pd.concat((months[11], months[0], months[1]))
+    obs_MAM = pd.concat((months[2], months[3], months[4]))
+    obs_JJA = pd.concat((months[5], months[6], months[7]))
+    obs_SON = pd.concat((months[8], months[9], months[10]))
+    months = [g for n, g in mod_df.groupby(pd.TimeGrouper('M'))]
+    mod_DJF = pd.concat((months[11], months[0], months[1]))
+    mod_MAM = pd.concat((months[2], months[3], months[4]))
+    mod_JJA = pd.concat((months[5], months[6], months[7]))
+    mod_SON = pd.concat((months[8], months[9], months[10]))
+    # run validation on each season in turn
+    seas_names = ['DJF', 'MAM', 'JJA', 'SON']
+    iteration = 0
+    for a, b in zip([obs_DJF, obs_MAM, obs_JJA, obs_SON], [mod_DJF, mod_MAM, mod_JJA, mod_SON]):
+        seas_bias = b-a
+        sterr = []
+        r = []
+        p = []
         rmses = []
-        for i in np.arange(len(surf_met_obs)):
-            b = surf_mod[i] - surf_met_obs[i]
-            errors.append(b)
-            mean_obs.append(np.mean(surf_met_obs[i]))
-            mean_mod.append(np.mean(surf_mod[i]))
-            bias.append(mean_mod[i] - mean_obs[i])
-            slope, intercept, r2, p, sterr = scipy.stats.linregress(surf_met_obs[i], surf_mod[i])
-            r2s.append(r2)
-            mse = mean_squared_error(y_true=surf_met_obs[i], y_pred=surf_mod[i])
+        for vars in idx[:-1]:
+            slope, intercept, r_val, p_val, sterr_val = scipy.stats.linregress(a[vars].values.tolist(), b[vars].values.tolist())
+            r.append(r_val)
+            p.append(p_val)
+            sterr.append(sterr_val)
+            mse = mean_squared_error(y_true=a[vars], y_pred=b[vars])
             rmse = np.sqrt(mse)
             rmses.append(rmse)
-            idx = ['Ts', 'Tair', 'RH', 'FF', 'P', 'WD', 'Swdown', 'LWdown', 'SWnet', 'LWnet', 'HS', 'HL', 'Emelt', 'Emelt_calc']
-        df = pd.DataFrame(index=idx)
-        df['obs mean'] = pd.Series(mean_obs, index=idx)
-        df['mod mean'] = pd.Series(mean_mod, index=idx)
-        df['bias'] = pd.Series(bias, index=idx)
-        df['rmse'] = pd.Series(rmses, index=idx)
-        df['% RMSE'] = (df['rmse'] / df['obs mean']) * 100
-        df['correl'] = pd.Series(r2s, index=idx)
-        #for i in range(len(surf_mod)):
-            #slope, intercept, r2, p, sterr = scipy.stats.linregress(surf_met_obs[i], surf_mod[i])
-            #print(idx[i])
-            #print('\nr2 = %s\n' % r2)
-        print('RMSE/bias = \n\n\n')
-        melt_nonzero = np.copy(surf_met_obs[-1])
-        melt_nonzero[melt_nonzero == 0.] = np.nan
-        AWS_nonz_mn = np.nanmean(melt_nonzero)
-        mod_melt_nonzero = np.copy(surf_mod[-2])
-        mod_melt_nonzero[mod_melt_nonzero == 0.] = np.nan
-        mod_nonz_mn = np.nanmean(mod_melt_nonzero)
-        calc_mod_melt_nonzero = np.copy(surf_mod[-1])
-        calc_mod_melt_nonzero[calc_mod_melt_nonzero == 0.] = np.nan
-        calc_mod_nonz_mn = np.nanmean(calc_mod_melt_nonzero)
-        nonz_bias = np.nanmean(mod_melt_nonzero - melt_nonzero)
-        print(each_mod_seas + ' observed mean: \n%s\n' % AWS_nonz_mn)
-        print(each_mod_seas + ' model mean: \n%s\n' % mod_nonz_mn)
-        print(each_mod_seas + ' calculated model mean: \n%s\n' % calc_mod_nonz_mn)
-        #df.to_csv('/data/mac/ellgil82/hindcast/' + year + '_' + each_mod_seas + '_' + station_dict[station] + '_bias_RMSE.csv')  # change to be station-specific
-        print(df)
+        stats_df = pd.DataFrame()
+        stats_df['bias'] = pd.Series(seas_bias.mean())
+        stats_df['r'] = pd.Series(r, index = idx[:-1])
+        stats_df['p'] = pd.Series(p, index = idx[:-1])
+        stats_df['sterr'] = pd.Series(sterr, index = idx[:-1])
+        stats_df['rmse'] = pd.Series(rmses, index = idx[:-1])
+        if daily == 'yes':
+            stats_df.to_csv(filepath + vars_yr['year'] + '_' + station_dict[station] + '_' + seas_names[iteration]  + '_seasonal_validation_daily.csv')
+            obs_df.to_csv(filepath + vars_yr['year'] + '_' + station_dict[station] + '_observed_time_srs_daily.csv')
+            mod_df.to_csv(filepath + vars_yr['year'] + '_' + station_dict[station] + '_modelled_time_srs_daily.csv')
+        else:
+            stats_df.to_csv(filepath + vars_yr['year'] + '_' + station_dict[station] + '_' + seas_names[iteration]  + '_seasonal_validation.csv')
+            obs_df.to_csv(filepath + vars_yr['year'] + '_' + station_dict[station] + '_observed_time_srs.csv')
+            mod_df.to_csv(filepath + vars_yr['year'] + '_' + station_dict[station] + '_modelled_time_srs.csv')
+        iteration = iteration + 1
+    return obs_df, mod_df
 
-seas_bias(year = '2011', station = 'AWS14_SEB_2009-2017_norp')
-#seas_bias(year = '2012', station = 'AWS17_SEB_2011-2015_norp')
+print('\nValidating seasonally\n')
+
+obs_df14, mod_df14 = calc_seas_bias(srs_14_trimmed, ANN_14, station = 'AWS14_SEB_2009-2017_norp.csv', daily = 'yes')
+obs_df15, mod_df15 = calc_seas_bias(srs_15_trimmed, ANN_15, station = 'AWS15_hourly_2009-2014.csv', daily = 'yes')
+obs_df17, mod_df17 = calc_seas_bias(srs_17_trimmed, ANN_17, station = 'AWS17_SEB_2011-2015_norp.csv', daily = 'yes')
+obs_df18, mod_df18 = calc_seas_bias(srs_18_trimmed, ANN_18, station = 'AWS18_SEB_2014-2017_norp.csv', daily = 'yes')
 
 def remove_diurnal_cyc(input_var):
     if input_var.ndim >= 2:
@@ -432,7 +792,7 @@ def calc_melt(AWS_vars, model_vars):
     print obs_total_melt_cmv, mod_total_melt_cmv
     return obs_total_melt_cmv, mod_total_melt_cmv
 
-obs_total_melt_cmv, mod_total_melt_cmv = calc_melt(AWS_vars = AWS14_SEB, model_vars = vars_2011)
+#obs_total_melt_cmv, mod_total_melt_cmv = calc_melt(AWS_vars = AWS14_SEB, model_vars = vars_2011)
 
 def calc_nonzero_melt(year, station, var_yr):
     AWS_var, DJF, MAM, JJA, SON = load_AWS(year = year, station = station)
@@ -453,11 +813,11 @@ def calc_melt_days(melt_var):
     melt_days = np.count_nonzero(out, axis = 0)
     return melt_days
 
-melt_days_calc = calc_melt_days(vars_2012['Emelt_calc'].data)
-melt_days = calc_melt_days(vars_2012['Emelt'].data)
+#melt_days_calc = calc_melt_days(vars_2012['Emelt_calc'].data)
+#melt_days = calc_melt_days(vars_2012['Emelt'].data)
 
-np.mean(melt_days_calc)
-np.mean(melt_days)
+#np.mean(melt_days_calc)
+#np.mean(melt_days)
 
 def calc_melt_duration(melt_var):
     melt = np.copy(melt_var)
@@ -465,11 +825,11 @@ def calc_melt_duration(melt_var):
     melt_periods = melt_periods*3. # multiply by 3 to get number of hours per year (3-hourly data)
     return melt_periods
 
-melt_dur_calc = calc_melt_duration(vars_2011['Emelt_calc'].data)
-melt_dur = calc_melt_duration(vars_2011['Emelt'].data)
+#melt_dur_calc = calc_melt_duration(vars_2011['Emelt_calc'].data)
+#melt_dur = calc_melt_duration(vars_2011['Emelt'].data)
 
-np.mean(melt_dur_calc)
-np.mean(melt_dur)
+#np.mean(melt_dur_calc)
+#np.mean(melt_dur)
 
 ## ---------------------------------------- PLOTTING ROUTINES ------------------------------------------------- ##
 
@@ -525,7 +885,7 @@ def wind_rose(year, station):
     plt.savefig('/users/ellgil82/figures/Hindcast/validation/wind_rose_' + station + '_' + year + '.eps')
     plt.show()
 
-wind_rose(year = '2011', station = 'AWS14')
+#wind_rose(year = '2011', station = 'AWS14')
 
 def plot_diurnal(var, domain):
     orog = iris.load_cube('OFCAP_orog.nc', 'surface_altitude')
@@ -669,7 +1029,7 @@ def seas_wind_rose(year, station):
     plt.show()
 
 #seas_wind_rose('2012', 'AWS17')
-seas_wind_rose('2011', 'AWS14')
+#seas_wind_rose('2011', 'AWS14')
 
 def SEB_plot():
     fig, ax = plt.subplots(2,2,sharex= True, sharey = True, figsize=(22, 12))
@@ -739,78 +1099,125 @@ def SEB_plot():
 
 #SEB_plot()
 
-def surf_plot(vars_yr, AWS_var, station):
+# Calculate daily mean data of AWS 14 and 15, then AWS 17 and 18
+for station, AWS_var in zip(['AWS14', 'AWS15', 'AWS17', 'AWS18'], [ANN_14, ANN_15, ANN_17, ANN_18]):
+    AWS_var.to_csv(filepath+station+'_daymn.csv')
+
+AWS14_daymn = pd.read_csv('AWS14_daymn.csv')
+AWS15_daymn = pd.read_csv('AWS15_daymn.csv')
+AWS17_daymn = pd.read_csv('AWS17_daymn.csv')
+AWS18_daymn = pd.read_csv('AWS18_daymn.csv')
+
+AWS14_df = pd.DataFrame()
+AWS15_df = pd.DataFrame()
+AWS17_df = pd.DataFrame()
+AWS18_df = pd.DataFrame()
+
+for j in ['Tair', 'Ts', 'FF_10m',  'WD', 'MSLP', 'sfc_P', 'RH', 'SWdown', 'SWnet', 'LWdown', 'LWnet', 'HS', 'HL', 'Etot', 'Emelt']:
+    AWS14_df[j] = np.mean(mn_srs[j][:,lat_index14 - 1:lat_index14 + 1, lon_index14 - 1:lon_index14 + 1].data, axis=(1, 2))
+    AWS15_df[j] = np.mean(mn_srs[j][:,lat_index15 - 1:lat_index15 + 1, lon_index15 - 1:lon_index15 + 1].data, axis=(1, 2))
+    AWS17_df[j] = np.mean(mn_srs[j][:,lat_index17 - 1:lat_index17 + 1, lon_index17 - 1:lon_index17 + 1].data, axis=(1, 2))
+    AWS18_df[j] = np.mean(mn_srs[j][:,lat_index18 - 1:lat_index18 + 1, lon_index18 - 1:lon_index18 + 1].data, axis=(1, 2))
+
+
+for k in [AWS14_df, AWS15_df, AWS17_df, AWS18_df]:
+    k.index = pd.date_range(datetime(1997,12,31,23,59,59),datetime(2017,12,31,23,59,59), freq ='D')
+
+inlet_df = pd.concat([AWS18_df, AWS17_df])
+inlet_df = inlet_df.groupby(inlet_df.index).mean()
+iceshelf_df = pd.concat([AWS14_df, AWS15_df])
+iceshelf_df = iceshelf_df.groupby(iceshelf_df.index).mean()
+for g in [inlet_df, iceshelf_df]:
+    g['HS'] = f['HS'] * -1.
+    g['HL'] = f['HL'] * -1.
+iceshelf_df.to_csv(filepath + 'Modelled_ice_shelf_daily_mean_series.csv')
+inlet_df.to_csv(filepath + 'Modelled_inlet_daily_mean_series.csv')
+
+iceshelf_monmn = iceshelf_df.resample('M').mean()
+iceshelf_monmax = iceshelf_df.resample('M').max()
+iceshelf_monmin = iceshelf_df.resample('M').min()
+iceshelf_monmn.to_csv(filepath + 'Modelled_ice_shelf_monthly_mean_series.csv')
+inlet_monmn = inlet_df.resample('M').mean()
+inlet_monmax = inlet_df.resample('M').max()
+inlet_monmin = inlet_df.resample('M').min()
+inlet_monmn.to_csv(filepath + 'Modelled_inlet_monthly_mean_series.csv')
+
+def surf_plot(inlet_df, iceshelf_df, minmax, which_vars):
     fig, ax = plt.subplots(2,2,sharex= True, figsize=(22, 12))
     ax = ax.flatten()
-    col_dict = {'0.5 km': '#33a02c', '1.5 km': '#f68080', '4.0 km': '#1f78b4'}
     lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'j', 10: 'k', 11: 'l' }
     days = mdates.MonthLocator(interval=1)
     dayfmt = mdates.DateFormatter('%m')
     plot = 0
-    AWS_daymn = AWS_var.groupby(['day']).mean()
-    AWS_daymn.to_csv('/data/clivarm/wip/ellgil82/AWS/'+station+'_'+ vars_yr['year']+'_daymn.csv')
-    obs_var = pd.read_csv('/data/clivarm/wip/ellgil82/AWS/'+station+'_'+ vars_yr['year']+'_daymn.csv', header = 0)
-    # Plot each variable in turn for 1.5 km resolution
-    for r in ['4.0 km']: # can increase the number of res, '4.0 km'
-        for j, k in zip(['RH', 'FF_10m', 'Tair_2m', 'Tsobs'], ['RH', 'FF_10m', 'Tair', 'Ts']):
-            limits = {'RH': (40,100), 'FF_10m': (0,25), 'Tair_2m': (-40, 5), 'Tsobs': (-40, 5)}
-            titles = {'RH': 'Relative \nhumidity (%)',
-                      'FF_10m': 'Wind speed \n(m s$^{-1}$)',
-                      'Tair_2m': '2 m air \ntemperature ($^{\circ}$C)',
-                      'Tsobs': 'Surface \ntemperature ($^{\circ}$C)'}
-            obs = ax[plot].plot(obs_var.index, obs_var[j], color='k', linewidth=2.5, label="Observations at AWS 14")
-            ax2 = ax[plot].twiny()
-            ax2.plot(vars_yr[k].coord('time').points, np.mean(vars_yr[k].data[:, lat_index14-1:lat_index14+1,lon_index14-1:lon_index14+1], axis = (1,2)), linewidth=2.5, color=col_dict[r], label='*%(r)s UM output for AWS 14' % locals(), zorder = 5)
-            ax2.axis('off')
-            ax2.set_xlim(vars_yr[k].coord('time').points[0], vars_yr[k].coord('time').points[-1])
-            ax[plot].set_xlim(obs_var.index[0], obs_var.index[-1])
-            ax2.tick_params(axis='both', tick1On = False, tick2On = False)
-            ax2.set_ylim(limits[j])
-            ax[plot].set_ylim(limits[j])#[floor(np.floor(np.min(AWS_var[j])),5),ceil(np.ceil( np.max(AWS_var[j])),5)])
-            ax[plot].set_ylabel(titles[j], rotation=0, fontsize=24, color = 'dimgrey', labelpad = 80)
-            ax[plot].tick_params(axis='both', which='both', labelsize=24, tick1On = False, tick2On = False)
-            lab = ax[plot].text(0.08, 0.85, zorder = 100, transform = ax[plot].transAxes, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
-            plot = plot + 1
-        for axs in [ax[0], ax[2]]:
-            axs.yaxis.set_label_coords(-0.3, 0.5)
-            axs.spines['right'].set_visible(False)
-        for axs in [ax[1], ax[3]]:
-            axs.yaxis.set_label_coords(1.27, 0.5)
-            axs.yaxis.set_ticks_position('right')
-            axs.tick_params(axis='y', tick1On = False)
-            axs.spines['left'].set_visible(False)
-        for axs in [ax[2], ax[3]]:
-            axs.set_xlabel('Day of year')
-        for axs in [ax[0], ax[1]]:
-            [l.set_visible(False) for (w, l) in enumerate(axs.yaxis.get_ticklabels()) if w % 2 != 0]
-        for axs in ax:
-            axs.spines['top'].set_visible(False)
-            plt.setp(axs.spines.values(), linewidth=2, color='dimgrey', )
-            axs.set_xlim(obs_var.index[0], obs_var.index.values[-1])
-            axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-            #[l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
-            plt.xticks([vars_yr[k].coord('time').points[0], vars_yr[k].coord('time').points[-1]])
+    # Plot each variable in turn
+    if which_vars == 'surf_met':
+        var_list = ['RH', 'FF_10m', 'Tair', 'Ts']
+        limits = {'RH': (40,100), 'FF_10m': (0,25), 'Tair': (-40, 5), 'Ts': (-40, 5)}
+        titles = {'RH': 'Relative \nhumidity (%)',
+                  'FF_10m': 'Wind speed \n(m s$^{-1}$)',
+                  'Tair': '2 m air \ntemperature ($^{\circ}$C)',
+                  'Ts': 'Surface \ntemperature ($^{\circ}$C)'}
+    elif which_vars == 'SEB':
+        var_list = ['SWdown', 'LWdown', 'HS', 'HL']
+        limits = {'SWdown': (0, 600), 'LWdown': (100, 350), 'HS': (-150,50), 'HL': (-50,100)}
+        titles = {'SWdown': 'Downwelling \nShortwave \nRadiation \n(W m$^{-2}$)',
+                  'LWdown': 'Downwelling \nLongwave \nRadiation \n(W m$^{-2}$)',
+                  'HS': 'Sensible heat \nflux (W m$^{-2}$)',
+                  'HL': 'Latent heat \nflux (W m$^{-2}$)'}
+    for j in var_list:
+        inlet = ax[plot].plot(inlet_df.index, inlet_df[j], color='#cc4c02', linewidth=2.5, label = 'Inlet stations')
+        iceshelf = ax[plot].plot(iceshelf_df.index, iceshelf_df[j], color='#045a8d', linewidth=2.5, label = 'Ice shelf stations')
+        ax[plot].set_xlim(inlet_df.index[0], inlet_df.index[-1])
+        ax[plot].set_ylim(limits[j])#[floor(np.floor(np.min(AWS_var[j])),5),ceil(np.ceil( np.max(AWS_var[j])),5)])
+        ax[plot].set_ylabel(titles[j], rotation=0, fontsize=24, color = 'dimgrey', labelpad = 80)
+        ax[plot].tick_params(axis='both', which='both', labelsize=24, tick1On = False, tick2On = False)
+        lab = ax[plot].text(0.08, 0.85, zorder = 100, transform = ax[plot].transAxes, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
+        if minmax == 'yes' or minmax == True:
+            ax[plot].fill_between(inlet_df.index, inlet_monmin[j], inlet_monmax[j], color='#cc4c02', alpha = 0.4)
+            ax[plot].fill_between(iceshelf_df.index, iceshelf_monmin[j], iceshelf_monmax[j], color='#045a8d', alpha=0.4)
+        plot = plot + 1
+    for axs in [ax[0], ax[2]]:
+        axs.yaxis.set_label_coords(-0.3, 0.5)
+        axs.spines['right'].set_visible(False)
+    for axs in [ax[1], ax[3]]:
+        axs.yaxis.set_label_coords(1.27, 0.5)
+        axs.yaxis.set_ticks_position('right')
+        axs.tick_params(axis='y', tick1On = False)
+        axs.spines['left'].set_visible(False)
+    for axs in [ax[0], ax[1]]:
+        [l.set_visible(False) for (w, l) in enumerate(axs.yaxis.get_ticklabels()) if w % 2 != 0]
+    for axs in ax:
+        axs.spines['top'].set_visible(False)
+        plt.setp(axs.spines.values(), linewidth=2, color='dimgrey', )
+        axs.set_xlim(inlet_df.index[0], inlet_df.index.values[-1])
+        axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+        [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
+        #plt.xticks([inlet_df.index[0], vars_yr[k].coord('time').points[-1]])
     # Legend
-    lns = [Line2D([0],[0], color='k', linewidth = 2.5)]
-    labs = ['Observations from AWS 14']
-    for r in ['4.0 km']:#
-        lns.append(Line2D([0],[0], color=col_dict[r], linewidth = 2.5))
-        labs.append(r[0]+'.'+r[2]+' km UM output at AWS 14')#('1.5 km output for Cabinet Inlet')
-    lgd = ax[1].legend(lns, labs, bbox_to_anchor=(0.55, 1.1), loc=2, fontsize=20)
+    lgd = ax[1].legend(bbox_to_anchor=(0.55, 1.1), loc=2, fontsize=20)
     frame = lgd.get_frame()
     frame.set_facecolor('white')
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
     plt.subplots_adjust(wspace = 0.05, hspace = 0.05, top = 0.95, right = 0.85, left = 0.16, bottom = 0.08)
-    plt.savefig('/users/ellgil82/figures/Hindcast/Validation/surface_met_'+station+'_'+ vars_yr['year'] + '_no_range_daymn.png', transparent = True)
-    plt.savefig('/users/ellgil82/figures/Hindcast/Validation/surface_met_'+station+'_'+ vars_yr['year'] + '_no_range_daymn.eps', transparent = True)
-    plt.savefig('/users/ellgil82/figures/Hindcast/Validation/surface_met_'+station+'_'+ vars_yr['year'] + '_no_range_daymn.pdf', transparent = True)
+    if minmax == True:
+        plt.savefig(filepath + which_vars + '_inlet_v_ice_shelf_monmn.png')
+        plt.savefig(filepath + which_vars + '_inlet_v_ice_shelf_monmn.eps')
+        plt.savefig(filepath + which_vars + '_inlet_v_ice_shelf_monmn.pdf')
+    else:
+        plt.savefig(filepath + which_vars + '_inlet_v_ice_shelf_no_range_monmn.png')
+        plt.savefig(filepath + which_vars + '_inlet_v_ice_shelf_no_range_monmn.eps')
+        plt.savefig(filepath + which_vars + '_inlet_v_ice_shelf_no_range_monmn.pdf')
     plt.show()
 
-surf_plot(vars_2011, AWS14_SEB, station = 'AWS14')
-#surf_plot(vars_2012, AWS17_SEB, station = 'AWS17')
+surf_plot(inlet_monmn, iceshelf_monmn, minmax = True, which_vars = 'surf_met')
+surf_plot(inlet_monmn, iceshelf_monmn, minmax = True, which_vars = 'SEB')
 
+
+fig, ax = plt.subplots(figsize=(18, 8))
+inlet = ax.plot(inlet_df.index, inlet_df[j], color='#cc4c02', linewidth=2.5, label = 'Inlet stations')
+iceshelf = ax.plot(iceshelf_df.index, iceshelf_dfmelt, color='#045a8d', linewidth=2.5, label = 'Ice shelf stations')
 
 def melt_plot(AWS_var, vars_yr, station):
     fig, ax = plt.subplots(figsize = (18,8))
@@ -849,7 +1256,7 @@ def melt_plot(AWS_var, vars_yr, station):
         plt.savefig('/users/ellgil82/figures/Hindcast/2011_melt.eps', transparent=True)
     plt.show()
 
-melt_plot(AWS_var = AWS14_SEB, vars_yr = vars_2011, station = 'AWS14')
+#melt_plot(AWS_var = AWS14_SEB, vars_yr = vars_2011, station = 'AWS14')
 
 def melt_map(vars_yr, AWS14_var, AWS17_var, calc, which):
     fig, axs  = plt.subplots(1,1, figsize = (10, 10))#, figsize=(20, 12), frameon=False)
@@ -953,6 +1360,6 @@ def melt_map(vars_yr, AWS14_var, AWS17_var, calc, which):
 
 #melt_map(vars_yr = vars_2012, AWS14_var = AWS14_SEB, AWS17_var = AWS17_SEB, calc = True, which = 'days')
 #melt_map(vars_yr = vars_2012, AWS14_var = AWS14_SEB, AWS17_var = AWS17_SEB, calc = False, which = 'days')
-melt_map(vars_yr = vars_2011, AWS14_var = AWS14_SEB, AWS17_var = AWS17_SEB, calc = True, which = 'duration')
-melt_map(vars_yr = vars_2011, AWS14_var = AWS14_SEB, AWS17_var = AWS17_SEB, calc = False, which = 'duration')
+#melt_map(vars_yr = vars_2011, AWS14_var = AWS14_SEB, AWS17_var = AWS17_SEB, calc = True, which = 'duration')
+#melt_map(vars_yr = vars_2011, AWS14_var = AWS14_SEB, AWS17_var = AWS17_SEB, calc = False, which = 'duration')
 #melt_map(vars_yr = vars_2014, AWS14_var = AWS14_SEB, AWS17_var = AWS17_SEB, calc = False, which = 'duration')
