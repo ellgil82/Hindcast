@@ -122,8 +122,6 @@ def load_vars(year):
 	prof_vars_yr = {'lon': real_lon, 'lat': real_lat, 'year': year, 'theta': theta_prof, 'u': u_prof, 'v': v_prof, 'altitude': theta_prof.coord('altitude'), 'orog': orog, 'lsm': LSM}
 	return surf_vars_yr, prof_vars_yr
 
-surf_2012, prof_2012 = load_vars('2012')
-
 def load_AWS(station, year):
 	## --------------------------------------------- SET UP VARIABLES ------------------------------------------------##
 	## Load data from AWS 14 and AWS 15 for January 2011
@@ -184,8 +182,6 @@ def load_AWS(station, year):
         os.chdir('/data/mac/ellgil82/hindcast/output/')
     return case, DJF, MAM, JJA, SON
 
-
-
 def load_all_AWS(station):
 	## --------------------------------------------- SET UP VARIABLES ------------------------------------------------##
 	## Load data from AWS 14 and AWS 15 for January 2011
@@ -245,8 +241,6 @@ def load_all_AWS(station):
         os.chdir('/data/mac/ellgil82/hindcast/output/')
     return AWS_srs, DJF, MAM, JJA, SON
 
-
-
 def Froude_number(u_wind):
 	'''Calculate Froude number at a distance of one Rossby radius of deformation (150 km) from the Antarctic Peninsula
 		mountain barrier.
@@ -275,7 +269,7 @@ rh_thresh = {'AWS14': -15,
 			 'AWS17': -15,
 			 'AWS18': -17.5}
 
-def diag_foehn_surf(meas_lat, meas_lon, surf_var):
+def diag_foehn_surf(meas_lat, meas_lon, surf_var, station):
 	''' Diagnose whether foehn conditions are present in data using the surface meteorology method described by Turton et al. (2018).
 
 	Criteria for foehn:
@@ -313,7 +307,7 @@ def diag_foehn_surf(meas_lat, meas_lon, surf_var):
 	foehn_freq = len(foehn_df)
 	return foehn_freq, foehn_df
 
-def diag_foehn_AWS(AWS_var):
+def diag_foehn_AWS(AWS_var, station):
 	''' Diagnose whether foehn conditions are present in data using the surface meteorology method described by Bannister (2015) and XXX.
 
 	Criteria for foehn:
@@ -421,9 +415,9 @@ def diag_foehn_Froude(meas_lat, meas_lon, prof_var):
 	for timestep in range(len(foehn_freq)-2):
 		# If representative upstream wind direction is cross-peninsula
 		for t in range(3):
-			if WD.magnitude[timestep+t] <= 300. and WD.magnitude[timestep+t] >= 240.:
+			if u_Z1[timestep + t] > 2.0:
 				# If Froude number > 0.9 for 6+ hours, diagnose foehn conditions
-				if Fr[timestep] >= 0.9 and Fr[timestep+1] >= 0.9 and Fr[timestep+2] >= 0.9:
+				if Fr[timestep + t] >= 0.9 :
 					foehn_freq[timestep] =  1.
 			else:
 				foehn_freq[timestep] =  0.
@@ -493,6 +487,7 @@ def diag_foehn_isentrope(meas_lat, meas_lon, prof_var):
 	model_df['Z3'] = pd.Series(np.repeat(Z3,2))
 	# If Z3 > 1000 m for 6 hours or more (two instantaneous timesteps for 6-hourly data = at least 6 hours) thresholds: FF = 1.0, T = 2.0, RH = -5
 	foehn_df = model_df.loc[(model_df.Z3 >= 470.)]
+	foehn_freq = len(foehn_df)
 	return foehn_freq, foehn_df
 
 def combo_foehn(meas_lat, meas_lon, prof_var, surf_var):
@@ -576,11 +571,47 @@ def combo_foehn(meas_lat, meas_lon, prof_var, surf_var):
 
 #foehn_freq, foehn_df = combo_foehn(lon_dict[station_dict[station]],lat_dict[station_dict[station]], prof_2012, surf_2012)#, station = 'AWS18')
 
+def full_srs_foehn():
+	# Load surface variables
+	Tair = iris.load_cube(filepath + '1998-2017_Tair_1p5m.nc', 'air_temperature')
+	FF_10m = iris.load_cube(filepath + '1998-2017_FF_10m.nc', 'wind_speed')
+	RH = iris.load_cube(filepath + '1998-2017_RH_1p5m.nc', 'relative_humidity')
+	theta_pp = iris.load_cube(filepath + '*pe000.pp', 'air_potential_temperature')
+	theta_pp = theta_pp[:, :40, :, :]
+	u_prof = iris.load_cube(filepath + '1998-2017_u_wind_full_profile.nc')
+	Tair.convert_units('celsius')
+	FF_10m = FF_10m[:, :, 1:, :]
+	dT = np.zeros((58434, 220,220))
+	dFF = np.zeros((58434, 220,220))
+	dRH = np.zeros((58434, 220,220))
+	for i in range(Tair.shape[0]-2):
+		dT[i,:,:] = ((Tair[i+2,0,:,:].data - Tair[i,0,:,:].data)/ Tair[i,0,:,:].data) * 100.
+		dRH[i, :, :] = ((1 - (RH[i + 2, 0, :, :].data - RH[i, 0, :, :].data)) / RH[i, 0, :, :].data) * 100.
+		#dFF[i, :, :] = ((FF_10m[i + 2, 0, :, :].data - FF_10m[i, 0, :, :].data) /  FF_10m[i, 0, :, :].data) * 100.
+	u_Z1 = np.mean(u_prof[:, 27, 80:140, 4:42].data, axis = (1,2)) >= 2. # take mean over area, not just at one point
+	u_Z1 = np.repeat(u_Z1[2:-3], 2)
+	f = np.reshape(np.tile(u_Z1, (1, 1, 1)), ((u_Z1.shape[0]), 1, 1))
+	u_Z1 = np.broadcast_to(f, (dT.shape))
+	dT = iris.cube.Cube(dT)
+	dRH = iris.cube.Cube(dRH)
+	#dFF = iris.cube.Cube(dFF)
+	foehn_cond_noFF = iris.analysis.maths.add(dRH, dT)
+	foehn_cond_noFF.data[u_Z1 < 2.0] = 0.
+	iris.save(foehn_cond_noFF, filepath + 'foehn_index_noFF.nc')
+	foehn_cond = iris.analysis.maths.add(foehn_cond_noFF, dFF)
+	foehn_cond.data[u_Z1 < 2.0] = 0.
+	#FI = iris.cube.Cube(foehn_cond)
+	iris.save(foehn_cond, filepath + 'foehn_index.nc')
+	return foehn_cond, foehn_cond_noFF
 
-lon_index14, lat_index14, = find_gridbox(-67.01, -61.03, surf_2012['lat'], surf_2012['lon'])
-lon_index15, lat_index15, = find_gridbox(-67.34, -62.09, surf_2012['lat'], surf_2012['lon'])
-lon_index17, lat_index17, = find_gridbox(-65.93, -61.85, surf_2012['lat'], surf_2012['lon'])
-lon_index18, lat_index18, = find_gridbox(-66.48272, -63.37105, surf_2012['lat'], surf_2012['lon'])
+#FI, FI_noFF = full_srs_foehn()
+
+surf_vars, prof_vars = load_vars('2012')
+
+lon_index14, lat_index14, = find_gridbox(-67.01, -61.03, surf_vars['lat'], surf_vars['lon'])
+lon_index15, lat_index15, = find_gridbox(-67.34, -62.09, surf_vars['lat'], surf_vars['lon'])
+lon_index17, lat_index17, = find_gridbox(-65.93, -61.85, surf_vars['lat'], surf_vars['lon'])
+lon_index18, lat_index18, = find_gridbox(-66.48272, -63.37105, surf_vars['lat'], surf_vars['lon'])
 
 lat_dict = {'AWS14': -67.01,
             'AWS15': -67.34,
@@ -595,28 +626,32 @@ lon_dict = {'AWS14': -61.03,
 station_dict = {'AWS14_SEB_2009-2017_norp.csv': 'AWS14',
              'AWS15_hourly_2009-2014.csv': 'AWS15',
               'AWS17_SEB_2011-2015_norp.csv': 'AWS17',
-                'AWS18_SEB_2014-2017_norp.csv': 'AWS18'}
+                 'AWS18_SEB_2014-2017_norp.csv': 'AWS18'}
 
 def foehn_freq_stats(station, yr_list):
-	yr_stats = pd.DataFrame(index=['obs', 'surf', 'Froude', 'isen', 'combo'], columns=yr_list)
+	print('Running annual foehn stats at ' + station)
+	yr_stats = pd.DataFrame(index=['Froude'], columns=yr_list)
 	for year in yr_list:
 		surf_var, prof_var = load_vars(year=year)
-		foehn_freq_isen = diag_foehn_isentrope(lon_dict[station_dict[station]],lat_dict[station_dict[station]], prof_var)
+		#foehn_freq_isen, foehn_df = diag_foehn_isentrope(lon_dict[station_dict[station]],lat_dict[station_dict[station]], prof_var)
 		foehn_freq_froude = diag_foehn_Froude(lon_dict[station_dict[station]],lat_dict[station_dict[station]], prof_var)
-		foehn_freq_surf, surf_df = diag_foehn_surf(lon_dict[station_dict[station]],lat_dict[station_dict[station]], surf_var)
-		combo_freq, combo_df = combo_foehn(lon_dict[station_dict[station]],lat_dict[station_dict[station]], prof_var, surf_var)
-		try:
-			AWS_ANN, AWS_DJF, AWS_MAM, AWS_JJA, AWS_SON = load_AWS(station, year)
-			foehn_freq_AWS, foehn_df = diag_foehn_AWS(AWS_ANN)
-			yr_stats[year] = pd.Series(data = [foehn_freq_AWS, foehn_freq_surf, np.count_nonzero(foehn_freq_froude), np.count_nonzero(foehn_freq_isen) + combo_freq], index = yr_stats.index)
-		except:
-			print('AWS data not available at ' + station_dict[station] + ' during ' + year)
-			yr_stats[year] = pd.Series(data= [np.nan, foehn_freq_surf, np.count_nonzero(foehn_freq_froude), np.count_nonzero(foehn_freq_isen) + combo_freq], index = yr_stats.index)
+		#foehn_freq_surf, surf_df = diag_foehn_surf(lon_dict[station_dict[station]],lat_dict[station_dict[station]], surf_var, station)
+		#combo_freq, combo_df = combo_foehn(lon_dict[station_dict[station]],lat_dict[station_dict[station]], prof_var, surf_var)
+		#try:
+		#	AWS_ANN, AWS_DJF, AWS_MAM, AWS_JJA, AWS_SON = load_AWS(station, year)
+		#	foehn_freq_AWS, foehn_df = diag_foehn_AWS(AWS_ANN, station)
+		#	yr_stats[year] = pd.Series(data = [foehn_freq_AWS, foehn_freq_surf, np.count_nonzero(foehn_freq_froude), foehn_freq_isen, combo_freq], index = yr_stats.index)
+		#except:
+		#	print('AWS data not available at ' + station_dict[station] + ' during ' + year)
+		#	yr_stats[year] = pd.Series(data= [np.nan, foehn_freq_surf, np.count_nonzero(foehn_freq_froude), foehn_freq_isen,  combo_freq], index = yr_stats.index)
+		yr_stats[year] = pd.Series([np.count_nonzero(foehn_freq_froude)], index = yr_stats.index)
 		print(yr_stats[year])
 	print(yr_stats)
-	yr_stats.to_csv(filepath + 'Annual_foehn_frequency_modelled_'+station+'.csv')
+	yr_stats.to_csv(filepath + 'Annual_foehn_frequency_modelled_FROUDE'+station+'.csv')
+
 
 def seas_foehn(year_list, station):
+	print('Running seasonal foehn stats at ' + station_dict[station])
 	seas_foehn_freq_mod = pd.DataFrame(index =['DJF', 'MAM', 'JJA', 'SON', 'ANN'], columns = year_list)
 	seas_foehn_freq_obs = pd.DataFrame(index =['DJF', 'MAM', 'JJA', 'SON', 'ANN'], columns = year_list)
 	seas_foehn_freq_bias = pd.DataFrame(index =['DJF', 'MAM', 'JJA', 'SON', 'ANN'], columns = year_list)
@@ -628,12 +663,12 @@ def seas_foehn(year_list, station):
 		JJA_surf, JJA_prof = load_vars('JJA_'+year)
 		SON_surf, SON_prof = load_vars('SON_'+year)
 		# diagnose modelled number of foehn
-		ANN_freq,df = combo_foehn(lon_dict[station_dict[station]],lat_dict[station_dict[station]], ANN_prof)
-		DJF_freq,df = combo_foehn(lon_dict[station_dict[station]],lat_dict[station_dict[station]], DJF_prof)
-		MAM_freq,df = combo_foehn(lon_dict[station_dict[station]],lat_dict[station_dict[station]], MAM_prof)
-		JJA_freq,df = combo_foehn(lon_dict[station_dict[station]],lat_dict[station_dict[station]], JJA_prof)
-		SON_freq,df = combo_foehn(lon_dict[station_dict[station]],lat_dict[station_dict[station]], SON_prof)
-		model_stats = [np.count_nonzero(DJF_freq), np.count_nonzero(MAM_freq), np.count_nonzero(JJA_freq), np.count_nonzero(SON_freq), np.count_nonzero(ANN_freq)]
+		ANN_freq,df = combo_foehn(lon_dict[station_dict[station]],lat_dict[station_dict[station]], ANN_prof, ANN_surf)
+		DJF_freq,df = combo_foehn(lon_dict[station_dict[station]],lat_dict[station_dict[station]], DJF_prof, DJF_surf)
+		MAM_freq,df = combo_foehn(lon_dict[station_dict[station]],lat_dict[station_dict[station]], MAM_prof, MAM_surf)
+		JJA_freq,df = combo_foehn(lon_dict[station_dict[station]],lat_dict[station_dict[station]], JJA_prof, JJA_surf)
+		SON_freq,df = combo_foehn(lon_dict[station_dict[station]],lat_dict[station_dict[station]], SON_prof, SON_surf)
+		model_stats = [DJF_freq, MAM_freq, JJA_freq, SON_freq, ANN_freq]
 		seas_foehn_freq_mod[year] = pd.Series(model_stats, index=['DJF', 'MAM', 'JJA', 'SON', 'ANN'])
 		# Import AWS data if available
 		try:
@@ -644,22 +679,25 @@ def seas_foehn(year_list, station):
 			success = 'no'
 			# Diagnose observed foehn frequency if available
 		if success == 'yes':
-			ANN_obs_freq = diag_foehn_AWS(AWS_ANN)
-			DJF_obs_freq = diag_foehn_AWS(AWS_DJF)
-			MAM_obs_freq = diag_foehn_AWS(AWS_MAM)
-			JJA_obs_freq = diag_foehn_AWS(AWS_JJA)
-			SON_obs_freq = diag_foehn_AWS(AWS_SON)
+			ANN_obs_freq,df = diag_foehn_AWS(AWS_ANN, station)
+			DJF_obs_freq,df = diag_foehn_AWS(AWS_DJF, station)
+			MAM_obs_freq,df = diag_foehn_AWS(AWS_MAM, station)
+			JJA_obs_freq,df = diag_foehn_AWS(AWS_JJA, station)
+			SON_obs_freq,df = diag_foehn_AWS(AWS_SON, station)
 			# obs_stats.append([np.count_nonzero(DJF_obs_freq), np.count_nonzero(MAM_obs_freq), np.count_nonzero(JJA_obs_freq), np.count_nonzero(SON_obs_freq), np.count_nonzero(ANN_obs_freq)])
-			obs = [np.count_nonzero(DJF_obs_freq), np.count_nonzero(MAM_obs_freq), np.count_nonzero(JJA_obs_freq), np.count_nonzero(SON_obs_freq), np.count_nonzero(ANN_obs_freq)]
+			obs = [DJF_obs_freq,MAM_obs_freq, JJA_obs_freq, SON_obs_freq, ANN_obs_freq]
 			seas_foehn_freq_obs[year] = pd.Series(obs, index = ['DJF', 'MAM', 'JJA', 'SON', 'ANN'])
 			biases = seas_foehn_freq_mod[year] - seas_foehn_freq_obs[year]
 			seas_foehn_freq_bias[year] = pd.Series(biases)
 		elif success == 'no':
-			obs_stats.append(['-', '-', '-', '-'])
-			seas_bias.append(['-', '-', '-', '-'])
+			seas_foehn_freq_obs[year] = pd.Series([np.nan, np.nan, np.nan, np.nan, np.nan], index = ['DJF', 'MAM', 'JJA', 'SON', 'ANN'])
+			seas_foehn_freq_bias[year] = pd.Series([np.nan, np.nan, np.nan, np.nan, np.nan], index=['DJF', 'MAM', 'JJA', 'SON', 'ANN'])
 	#seas_foehn_freq_bias = pd.DataFrame(seas_bias, columns = ['DJF', 'MAM', 'JJA', 'SON', 'ANN'], index = year_list)
 	#seas_foehn_freq_obs = pd.DataFrame(obs_stats, columns = ['DJF', 'MAM', 'JJA', 'SON', 'ANN'], index = year_list)
-	seas_foehn_freq_obs.plot.bar()
+	try:
+		seas_foehn_freq_obs.plot.bar()
+	except:
+		print('can\'t plot no bar chart')
 	if host == 'bsl':
 		plt.savefig('/users/ellgil82/figures/Hindcast/foehn/Observed_seasonal_foehn_frequency_' + station_dict[station] + '_' + year_list[0] + '_to_' + year_list[-1] + '.png')
 	elif host == 'jasmin':
@@ -685,10 +723,11 @@ def seas_foehn(year_list, station):
 #seas_foehn(year_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'], station = 'AWS18_SEB_2014-2017_norp.csv')
 #seas_foehn(year_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'], station = 'AWS15_hourly_2009-2014.csv')
 
-for s in station_dict.keys():
+for s in station_dict.keys():#'[ 'AWS15_hourly_2009-2014.csv','AWS17_SEB_2011-2015_norp.csv',  'AWS18_SEB_2014-2017_norp.csv']:
+	#seas_foehn(station = s, year_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007',  '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'])
 	foehn_freq_stats(station = s, yr_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007',  '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'])
-	seas_foehn(station = s, year_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007',  '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'])
 
+FI, FI_noFF = full_srs_foehn()
 
 def foehn_freq_bar(station, yr_list):
 	foehn_stats = pd.DataFrame(index = ['observed', 'surface method', 'Froude method','isentrope method' ])
@@ -714,33 +753,37 @@ def foehn_freq_bar(station, yr_list):
 	foehn_stats.to_csv(filepath + 'Modelled_foehn_frequency_various_methods_' + station_dict[station] + '_' + year_list[0] + '_to_' + year_list[-1] + '.csv')
 	plt.show()
 
-#foehn_freq_bar('AWS14_SEB_2009-2017_norp', yr_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007',  '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'])
+#foehn_freq_bar('AWS14_SEB_2009-2017_norp.csv', yr_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007',  '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'])
 #foehn_freq_bar('AWS17_SEB_2011-2015_norp', yr_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007',  '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'])
 #foehn_freq_bar('iWS18_SEB_hourly_until_nov17.txt', yr_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007',  '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'])
 #foehn_freq_bar('AWS15_hourly_2009-2014.csv', yr_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007',  '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'])
 
 
-surf_vars, prof_vars = load_vars('1998-2017')
+#surf_var, prof_var = load_vars('1998-2017')
 
-def spatial_foehn():
-	dT = np.diff(surf_var['Tair'].data, n=2, axis = 0) >= 0.
-	dT3 = np.diff(surf_var['Tair'].data, n=2,axis = 0) >= 3.
-	u_Z1 = prof_var['u'][:, Z1, 110, 42].data >= 2.
-	u_Z1 = np.repeat(u_Z1[1:], 2)
-	f = np.reshape(np.tile(u_Z1, (1,1,1)), (2926,1,1))
-	u_Z1 = np.broadcast_to(f, (dT.shape))
-	RH10 = surf_var['RH'][:-2].data <= np.quantile(surf_var['RH'][:-2].data, 0.1, axis = 0)
-	RH15 = surf_var['RH'][:-2].data <= np.quantile(surf_var['RH'][:-2].data, 0.15, axis = 0)
-	dRH = np.diff(surf_var['RH'].data, n=2, axis = 0) <= -15
-	all_cond = (((RH10 == 1.) & (dT == 1.) & (u_Z1 == 1.))| ((RH15 == 1.) & (dT3 == 1.) & (u_Z1 == 1.)) | ((dRH == 1.)  & (dT == 1.) & (u_Z1 == 1.) )) # Criteria of Turton et al. (2018) plus wind component
-	total_foehn = all_cond.sum(axis = 0)
-	foehn_pct = np.ma.masked_where(condition = prof_var['lsm'].data == 0., a= (total_foehn/np.float(len(dT)))*100.)
+def spatial_foehn(calc):
+	if calc == 'yes':
+		dT = np.diff(surf_var['Tair'].data, n=2, axis = 0) >= 0.
+		dT3 = np.diff(surf_var['Tair'].data, n=2,axis = 0) >= 3.
+		Z1 = np.argmin((prof_var['altitude'][:, 110, 42].points - 2000) ** 2)
+		u_Z1 = prof_var['u'][:, Z1, 110, 42].data >= 2.
+		u_Z1 = np.repeat(u_Z1[2:-3], 2)
+		f = np.reshape(np.tile(u_Z1, (1,1,1)), ((u_Z1.shape[0]),1,1))
+		u_Z1 = np.broadcast_to(f, (dT.shape))
+		RH10 = surf_var['RH'][:-2].data <= np.quantile(surf_var['RH'][:-2].data, 0.1, axis = 0)
+		RH15 = surf_var['RH'][:-2].data <= np.quantile(surf_var['RH'][:-2].data, 0.15, axis = 0)
+		dRH = np.diff(surf_var['RH'].data, n=2, axis = 0) <= -15
+		all_cond = (((RH10 == 1.) & (dT == 1.) & (u_Z1 == 1.))| ((RH15 == 1.) & (dT3 == 1.) & (u_Z1 == 1.)) | ((dRH == 1.)  & (dT == 1.) & (u_Z1 == 1.) )) # Criteria of Turton et al. (2018) plus wind component
+		total_foehn = all_cond.sum(axis = 0)
+		foehn_pct = np.ma.masked_where(condition = prof_var['lsm'].data == 0., a= (total_foehn/np.float(len(dT)))*100.)
+	else:
+		foehn_pct = iris.load_cube(filepath + 'foehn_pct.nc')
 	# Plot
 	fig, ax = plt.subplots(figsize=(8, 8))
 	CbAx = fig.add_axes([0.25, 0.18, 0.5, 0.02])
 	ax.axis('off')
-	c = ax.pcolormesh(foehn_pct, cmap = 'OrRd', vmin = 0, vmax = 15)  #divide by 20 to get mean annual number of foehn/20.
-	cb = plt.colorbar(c, cax = CbAx, orientation = 'horizontal', extend = 'max', ticks = [0,5,10, 15])#cb.solids.set_edgecolor("face")
+	c = ax.pcolormesh(np.ma.masked_where((prof_var['orog'].data >= 100.), foehn_pct.data), cmap = 'OrRd', vmin = 3, vmax = 12)  #divide by 20 to get mean annual number of foehn/20.
+	cb = plt.colorbar(c, cax = CbAx, orientation = 'horizontal', extend = 'both', ticks = [0,5,10, 15])#cb.solids.set_edgecolor("face")
 	cb.outline.set_edgecolor('dimgrey')
 	cb.ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0, tick1On=False, tick2On=False)
 	cb.outline.set_linewidth(2)
@@ -756,12 +799,14 @@ def spatial_foehn():
 		plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/foehn_occurrence_spatial_composite_surface_criteria.png', transparent=True)
 		plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/foehn_occurrence_spatial_composite_surface_criteria.eps', transparent=True)
 	#plt.show()
-	return total_foehn, foehn_pct, all_cond
+	if calc == 'yes':
+		return total_foehn, foehn_pct, all_cond
 
-total_foehn, foehn_pct, all_cond = spatial_foehn()
+#total_foehn, foehn, all_cond = spatial_foehn(calc = 'no')
+#total_foehn, foehn, all_cond = spatial_foehn(calc = 'yes')
 
-fpct = iris.cube.Cube(data = foehn_pct, units = 'percent', long_name = 'foehn occurrence')
-iris.save(fpct, filepath + 'foehn_pct.nc')
+#fpct = iris.cube.Cube(data = foehn_pct, units = 'percent', long_name = 'foehn occurrence')
+#iris.save(fpct, filepath + 'foehn_pct.nc')
 
 
 
