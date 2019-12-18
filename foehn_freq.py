@@ -6,9 +6,11 @@ from matplotlib.lines import Line2D
 import scipy.stats
 import os
 
+filepath = '/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/alloutput/'
+
 # Load foehn frequency file
 def foehn_freq(station, which):
-	df = pd.read_csv(which + "_seasonal_foehn_frequency_" + station + "_1998_to_2017.csv", usecols = range(1,21), dtype = np.float64)
+	df = pd.read_csv(filepath + which + "_seasonal_foehn_frequency_" + station + "_1998_to_2017.csv", usecols = range(1,21), dtype = np.float64)
 	df["mean"] = df.mean(axis = 1)
 	df["sum"] = df.sum(axis = 1)
 	df.index = ["DJF", "MAM", "JJA", "SON", "ANN"]
@@ -74,28 +76,50 @@ t, p = scipy.stats.ttest_rel(inlet_mod, iceshelf_mod, axis = 1)
 
 # Correlate with SAM index
 def SAM_correl():
-	SAM = pd.read_csv('1998-2017_SAM_idx.csv', usecols = range(1,6), header = 2, skipfooter=3)
+	SAM = pd.read_csv(filepath + '1998-2017_SAM_idx.csv', usecols = range(1,6), header = 2, skipfooter=3)
 	SAM.index = range(1998,2018)
 	stats_df = pd.DataFrame()
 	inlet_p = []
 	IS_p = []
 	inlet_t = []
 	IS_t = []
+	t_18 = []
+	p_18 = []
+	t_17 = []
+	p_17 = []
+	t_15 = []
+	p_15 = []
+	t_14 = []
+	p_14 = []
 	for i in ["DJF", "MAM", "JJA", "SON", "ANN"]:
-		#t, p = scipy.stats.ttest_rel(obs17[i][:-2], SAM[i])
-		#stats_df['obs17'] = pd.Series[p]
-		t, p = scipy.stats.pearsonr(mod17[i][:-2], SAM[i])
-		inlet_p.append(p)
-		inlet_t.append(t)
-		#t, p = scipy.stats.ttest_rel(obs15[i][:-2], SAM[i])
-		#stats_df['obs15'] = pd.Series[p]
-		t, p = scipy.stats.pearsonr(mod15[i][:-2], SAM[i])
-		IS_p.append(p)
-		IS_t.append(t)
+		t17, p17 = scipy.stats.pearsonr(mod17[i][:-2], SAM[i])
+		t18, p18 = scipy.stats.pearsonr(mod18[i][:-2], SAM[i])
+		t_18.append(t18)
+		p_18.append(p18)
+		t_17.append(t17)
+		p_17.append(p17)
+		inlet_p.append((p17 + p18)/2.)
+		inlet_t.append((t17 + t18)/2.)
+		t14, p14 = scipy.stats.pearsonr(mod14[i][:-2], SAM[i])
+		t15, p15 = scipy.stats.pearsonr(mod15[i][:-2], SAM[i])
+		IS_p.append((p14 + p15)/2.)
+		IS_t.append((t14 + t15)/2.)
+		t_15.append(t15)
+		p_15.append(p15)
+		t_14.append(t14)
+		p_14.append(p14)
 	stats_df['inlet r'] = pd.Series(inlet_t, index = ["DJF", "MAM", "JJA", "SON", "ANN"])
 	stats_df['inlet p'] = pd.Series(inlet_p, index = ["DJF", "MAM", "JJA", "SON", "ANN"])
 	stats_df['ice shelf r'] = pd.Series(IS_t, index = ["DJF", "MAM", "JJA", "SON", "ANN"])
 	stats_df['ice shelf p'] = pd.Series(IS_p, index = ["DJF", "MAM", "JJA", "SON", "ANN"])
+	stats_df['AWS 18 p'] = pd.Series(p_18, index=["DJF", "MAM", "JJA", "SON", "ANN"])
+	stats_df['AWS 18 r'] = pd.Series(t_18, index=["DJF", "MAM", "JJA", "SON", "ANN"])
+	stats_df['AWS 17 p'] = pd.Series(p_17, index=["DJF", "MAM", "JJA", "SON", "ANN"])
+	stats_df['AWS 17 r'] = pd.Series(t_17, index=["DJF", "MAM", "JJA", "SON", "ANN"])
+	stats_df['AWS 15 p'] = pd.Series(p_15, index=["DJF", "MAM", "JJA", "SON", "ANN"])
+	stats_df['AWS 15 r'] = pd.Series(t_15, index=["DJF", "MAM", "JJA", "SON", "ANN"])
+	stats_df['AWS 14 p'] = pd.Series(p_14, index=["DJF", "MAM", "JJA", "SON", "ANN"])
+	stats_df['AWS 14 r'] = pd.Series(t_14, index=["DJF", "MAM", "JJA", "SON", "ANN"])
 	stats_df = stats_df.swapaxes(0,1)
 	return stats_df, SAM
 
@@ -110,18 +134,21 @@ rcParams['font.sans-serif'] = ['Segoe UI', 'Helvetica', 'Liberation sans', 'Taho
 def plot_foehn():
 	fig, ax = plt.subplots(1,1,figsize = (16,8))
 	plt.setp(ax.spines.values(), linewidth=2, color='dimgrey')
-	ax.plot(range(1998,2018), inlet_mod.ANN.iloc[:-2], color = 'orange', linewidth = 2.5, label = 'Inlet stations, modelled')
-	ax.plot(range(1998,2018), iceshelf_mod.ANN.iloc[:-2], color = 'blue', linewidth = 2.5, label = 'Ice shelf stations, modelled')
-	ax.set_ylabel('Annual\nfoehn frequency', rotation = 0,fontsize=28, labelpad=20, color='dimgrey')
+	ax.plot(range(1998,2018), inlet_mod.foehn_frac.iloc[:-2], color = 'orange', linewidth = 2.5, label = 'Inlet stations, modelled')
+	ax.plot(range(1998,2018), iceshelf_mod.foehn_frac.iloc[:-2], color = 'blue', linewidth = 2.5, label = 'Ice shelf stations, modelled')
+	ax.set_ylabel('Annual foehn\nfrequency (%)', rotation = 0,fontsize=28, labelpad=20, color='dimgrey')
 	ax2  = ax.twinx()
+	plt.setp(ax2.spines.values(), linewidth=2, color='dimgrey')
 	ax2.plot(range(1998,2018), SAM.ANN, color = 'dimgrey', linewidth = 2.5, linestyle = ':')
 	ax2.set_ylabel('SAM \nindex', rotation = 0, fontsize=28, labelpad=20, color='dimgrey')
+	ax.set_ylim(10,20)
+	ax.set_yticks([10,15,20])
 	for axs in ax, ax2:
 		axs.spines['top'].set_visible(False)
 		axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey')
 		axs.set_xlim(1998,2017)
 		axs.set_xticks([1998, 2003, 2008, 2012, 2017])
-	[l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
+	#[l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
 	ax.yaxis.set_label_coords(-0.22, 0.5)
 	ax2.yaxis.set_label_coords(1.15, 0.62)
 	lns = [Line2D([0], [0], color='blue', linewidth=2.5),
@@ -147,11 +174,12 @@ def foehn_time_srs():
 	time_srsSAM = np.ravel(SAM.values[:,:-1])
 	fig, ax = plt.subplots(1, 1, figsize=(16, 8))
 	plt.setp(ax.spines.values(), linewidth=2, color='dimgrey')
-	ax.plot(range(80),time_srs_in, color='orange', linewidth=2.5, label='AWS 17, modelled')
-	ax.plot(range(80), time_srs_is, color='blue', linewidth=2.5, label='AWS 15, modelled')
-	ax.set_ylabel('Seasonal \nfoehn \nfrequency', rotation=0, fontsize=28, labelpad=20, color='dimgrey')
-	ax.set_ylim(0,180)
+	ax.plot(range(80), (time_srs_in/730.)*100, color='orange', linewidth=2.5, label='AWS 17, modelled')
+	ax.plot(range(80), (time_srs_is/730.)*100, color='blue', linewidth=2.5, label='AWS 15, modelled')
+	ax.set_ylabel('Seasonal foehn\nfrequency (%)', rotation=0, fontsize=28, labelpad=20, color='dimgrey')
+	ax.set_ylim(0,30)
 	ax2 = ax.twinx()
+	plt.setp(ax2.spines.values(), linewidth=2, color='dimgrey')
 	ax2.plot(range(80), time_srsSAM, color='dimgrey', linewidth=2.5, linestyle=':')
 	ax2.set_ylabel('SAM \nindex', rotation=0, fontsize=28, labelpad=20, color='dimgrey')
 	for axs in ax, ax2:
@@ -183,3 +211,16 @@ def foehn_time_srs():
 	plt.show()
 
 foehn_time_srs()
+
+DJF = plt.plot(iceshelf_mod.DJF.values[:-2]/7.3, label = 'DJF')
+MAM = plt.plot(iceshelf_mod.MAM.values[:-2]/7.3, label = 'MAM')
+JJA = plt.plot(iceshelf_mod.JJA.values[:-2]/7.3, label = 'JJA')
+SON = plt.plot(iceshelf_mod.SON.values[:-2]/7.3, label = 'SON')
+
+
+import pymannkendall as mk
+result = mk.seasonal_test(inlet_mod.SON)
+plt.plot(df.index, df.IWP, label= 'IWP')
+yr_mn = df.IWP.rolling(window = 7305, center = True).mean()
+plt.plot(yr_mn, label = 'yearly rolling mean')
+plt.show()
