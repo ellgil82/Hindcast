@@ -270,9 +270,9 @@ ANN_18, DJF_18, MAM_18, JJA_18, SON_18 = load_all_AWS('AWS18_SEB_2014-2017_norp.
 
 def make_model_timesrs(model_var, freq):
     try:
-        Timesrs = model_var['Ts'].coord('t').points
+        Timesrs = model_var['Emelt'].coord('t').points
     except:
-        Timesrs = model_var['Ts'].coord('time').points
+        Timesrs = model_var['Emelt'].coord('time').points
     Timesrs = Timesrs + 0.5 # account for offset from initialisation time (t-12 hr), then + 1 to map index day[0] onto day 1.
     df = pd.DataFrame()
     if model_var['year'] == '1998-2017':
@@ -385,20 +385,20 @@ def calc_minmax(station, trimmed_srs, daily):
 
 print('\nCalculating mins/maxes\n')
 
-Tmax14, Tmin14 = calc_minmax('AWS14_SEB_2009-2017_norp.csv', srs_14_trimmed, daily = 'yes')
-Tmax15, Tmin15 = calc_minmax('AWS15_hourly_2009-2014.csv', srs_15_trimmed, daily = 'yes')
-Tmax17, Tmin17 = calc_minmax('AWS17_SEB_2011-2015_norp.csv', srs_17_trimmed, daily = 'yes')
-Tmax18, Tmin18 = calc_minmax('AWS18_SEB_2014-2017_norp.csv', srs_18_trimmed, daily = 'yes')
+#Tmax14, Tmin14 = calc_minmax('AWS14_SEB_2009-2017_norp.csv', srs_14_trimmed, daily = 'yes')
+#Tmax15, Tmin15 = calc_minmax('AWS15_hourly_2009-2014.csv', srs_15_trimmed, daily = 'yes')
+#Tmax17, Tmin17 = calc_minmax('AWS17_SEB_2011-2015_norp.csv', srs_17_trimmed, daily = 'yes')
+#Tmax18, Tmin18 = calc_minmax('AWS18_SEB_2014-2017_norp.csv', srs_18_trimmed, daily = 'yes')
 
-mins = {'AWS14': Tmin14,
-            'AWS15': Tmin15,
-            'AWS17': Tmin17,
-            'AWS18': Tmin18}
+#mins = {'AWS14': Tmin14,
+#            'AWS15': Tmin15,
+#            'AWS17': Tmin17,
+#            'AWS18': Tmin18}
 
-maxes = {'AWS14': Tmax14,
-            'AWS15': Tmax15,
-            'AWS17': Tmax17,
-            'AWS18': Tmax18}
+#maxes = {'AWS14': Tmax14,
+#            'AWS15': Tmax15,
+#            'AWS17': Tmax17,
+#            'AWS18': Tmax18}#
 
 def seas_mean(year_list, location):
     for each_year in year_list:
@@ -741,10 +741,10 @@ def calc_seas_bias(vars_yr, AWS_var, station, daily):
 
 print('\nValidating seasonally\n')
 
-obs_df14, mod_df14 = calc_seas_bias(srs_14_trimmed, ANN_14, station = 'AWS14_SEB_2009-2017_norp.csv', daily = 'yes')
-obs_df15, mod_df15 = calc_seas_bias(srs_15_trimmed, ANN_15, station = 'AWS15_hourly_2009-2014.csv', daily = 'yes')
-obs_df17, mod_df17 = calc_seas_bias(srs_17_trimmed, ANN_17, station = 'AWS17_SEB_2011-2015_norp.csv', daily = 'yes')
-obs_df18, mod_df18 = calc_seas_bias(srs_18_trimmed, ANN_18, station = 'AWS18_SEB_2014-2017_norp.csv', daily = 'yes')
+#obs_df14, mod_df14 = calc_seas_bias(srs_14_trimmed, ANN_14, station = 'AWS14_SEB_2009-2017_norp.csv', daily = 'yes')
+#obs_df15, mod_df15 = calc_seas_bias(srs_15_trimmed, ANN_15, station = 'AWS15_hourly_2009-2014.csv', daily = 'yes')
+#obs_df17, mod_df17 = calc_seas_bias(srs_17_trimmed, ANN_17, station = 'AWS17_SEB_2011-2015_norp.csv', daily = 'yes')
+#obs_df18, mod_df18 = calc_seas_bias(srs_18_trimmed, ANN_18, station = 'AWS18_SEB_2014-2017_norp.csv', daily = 'yes')
 
 def remove_diurnal_cyc(input_var):
     if input_var.ndim >= 2:
@@ -1100,38 +1100,46 @@ def SEB_plot():
 #SEB_plot()
 
 # Calculate daily mean data of AWS 14 and 15, then AWS 17 and 18
-for station, AWS_var in zip(['AWS14', 'AWS15', 'AWS17', 'AWS18'], [ANN_14, ANN_15, ANN_17, ANN_18]):
-    AWS_var.to_csv(filepath+station+'_daymn.csv')
+#for station, AWS_var in zip(['AWS14', 'AWS15', 'AWS17', 'AWS18'], [ANN_14, ANN_15, ANN_17, ANN_18]):
+#    AWS_var.to_csv(filepath+station+'_daymn.csv')
 
-AWS14_daymn = pd.read_csv('AWS14_daymn.csv')
-AWS15_daymn = pd.read_csv('AWS15_daymn.csv')
-AWS17_daymn = pd.read_csv('AWS17_daymn.csv')
-AWS18_daymn = pd.read_csv('AWS18_daymn.csv')
+#AWS14_daymn = pd.read_csv('AWS14_daymn.csv')
+#AWS15_daymn = pd.read_csv('AWS15_daymn.csv')
+#AWS17_daymn = pd.read_csv('AWS17_daymn.csv')
+#AWS18_daymn = pd.read_csv('AWS18_daymn.csv')
+#
+#AWS14_df = pd.DataFrame()
+#AWS15_df = pd.DataFrame()
+#AWS17_df = pd.DataFrame()
+#AWS18_df = pd.DataFrame()
+#
+#for j in ['Tair', 'Ts', 'FF_10m',  'WD', 'MSLP', 'sfc_P', 'RH', 'SWdown', 'SWnet', 'LWdown', 'LWnet', 'HS', 'HL', 'Etot', 'Emelt']:
+#    AWS14_df[j] = np.mean(full_srs[j][:,lat_index14 - 1:lat_index14 + 1, lon_index14 - 1:lon_index14 + 1].data, axis=(1, 2))
+#    AWS15_df[j] = np.mean(full_srs[j][:,lat_index15 - 1:lat_index15 + 1, lon_index15 - 1:lon_index15 + 1].data, axis=(1, 2))
+#    AWS17_df[j] = np.mean(full_srs[j][:,lat_index17 - 1:lat_index17 + 1, lon_index17 - 1:lon_index17 + 1].data, axis=(1, 2))
+#    AWS18_df[j] = np.mean(full_srs[j][:,lat_index18 - 1:lat_index18 + 1, lon_index18 - 1:lon_index18 + 1].data, axis=(1, 2))
+#
+#
+#for k in [AWS14_df, AWS15_df, AWS17_df, AWS18_df]:
+#    k.index = pd.date_range(datetime(1997,12,31,23,59,59),datetime(2017,12,31,23,59,59), freq ='D')
+#
+#inlet_df = pd.concat([AWS18_df, AWS17_df])
+#inlet_df = inlet_df.groupby(inlet_df.index).mean()
+#iceshelf_df = pd.concat([AWS14_df, AWS15_df])
+#iceshelf_df = iceshelf_df.groupby(iceshelf_df.index).mean()
+##for g in [inlet_df, iceshelf_df]:
+#    g['HS'] = f['HS'] * -1.
+#    g['HL'] = f['HL'] * -1.
+#iceshelf_df.to_csv(filepath + 'Modelled_ice_shelf_daily_mean_series.csv')
+#inlet_df.to_csv(filepath + 'Modelled_inlet_daily_mean_series.csv')
 
-AWS14_df = pd.DataFrame()
-AWS15_df = pd.DataFrame()
-AWS17_df = pd.DataFrame()
-AWS18_df = pd.DataFrame()
 
-for j in ['Tair', 'Ts', 'FF_10m',  'WD', 'MSLP', 'sfc_P', 'RH', 'SWdown', 'SWnet', 'LWdown', 'LWnet', 'HS', 'HL', 'Etot', 'Emelt']:
-    AWS14_df[j] = np.mean(mn_srs[j][:,lat_index14 - 1:lat_index14 + 1, lon_index14 - 1:lon_index14 + 1].data, axis=(1, 2))
-    AWS15_df[j] = np.mean(mn_srs[j][:,lat_index15 - 1:lat_index15 + 1, lon_index15 - 1:lon_index15 + 1].data, axis=(1, 2))
-    AWS17_df[j] = np.mean(mn_srs[j][:,lat_index17 - 1:lat_index17 + 1, lon_index17 - 1:lon_index17 + 1].data, axis=(1, 2))
-    AWS18_df[j] = np.mean(mn_srs[j][:,lat_index18 - 1:lat_index18 + 1, lon_index18 - 1:lon_index18 + 1].data, axis=(1, 2))
+inlet_df = pd.read_csv(filepath + 'Modelled_inlet_daily_mean_series.csv', index_col = 0)
+iceshelf_df = pd.read_csv(filepath + 'Modelled_ice_shelf_daily_mean_series.csv', index_col = 0)
 
-
-for k in [AWS14_df, AWS15_df, AWS17_df, AWS18_df]:
-    k.index = pd.date_range(datetime(1997,12,31,23,59,59),datetime(2017,12,31,23,59,59), freq ='D')
-
-inlet_df = pd.concat([AWS18_df, AWS17_df])
-inlet_df = inlet_df.groupby(inlet_df.index).mean()
-iceshelf_df = pd.concat([AWS14_df, AWS15_df])
-iceshelf_df = iceshelf_df.groupby(iceshelf_df.index).mean()
-for g in [inlet_df, iceshelf_df]:
-    g['HS'] = f['HS'] * -1.
-    g['HL'] = f['HL'] * -1.
-iceshelf_df.to_csv(filepath + 'Modelled_ice_shelf_daily_mean_series.csv')
-inlet_df.to_csv(filepath + 'Modelled_inlet_daily_mean_series.csv')
+for df in [inlet_df, iceshelf_df]:
+    df['Datetime'] = pd.date_range(datetime(1997,12,31,0,0,0),datetime(2017,12,31,23,59,59), freq = 'D')
+    df.index  = df['Datetime']
 
 iceshelf_monmn = iceshelf_df.resample('M').mean()
 iceshelf_monmax = iceshelf_df.resample('M').max()
@@ -1159,7 +1167,7 @@ def surf_plot(inlet_df, iceshelf_df, minmax, which_vars):
                   'Ts': 'Surface \ntemperature ($^{\circ}$C)'}
     elif which_vars == 'SEB':
         var_list = ['SWdown', 'LWdown', 'HS', 'HL']
-        limits = {'SWdown': (0, 600), 'LWdown': (100, 350), 'HS': (-150,50), 'HL': (-50,100)}
+        limits = {'SWdown': (0, 600), 'LWdown': (100, 350), 'HS': (-50,150), 'HL': (-100,50)}
         titles = {'SWdown': 'Downwelling \nShortwave \nRadiation \n(W m$^{-2}$)',
                   'LWdown': 'Downwelling \nLongwave \nRadiation \n(W m$^{-2}$)',
                   'HS': 'Sensible heat \nflux (W m$^{-2}$)',
@@ -1222,25 +1230,27 @@ iceshelf = ax.plot(iceshelf_df.index, iceshelf_dfmelt, color='#045a8d', linewidt
 def melt_plot(AWS_var, vars_yr, station):
     fig, ax = plt.subplots(figsize = (18,8))
     ax2 = ax.twiny()
-    ax.plot(AWS_var['datetime'][::3], vars_yr['Emelt'][:, lat_dict[station], lon_dict[station]].data, lw = 2, color = '#1f78b4', label = 'Modelled $E_{melt}$', zorder = 1)#color = '#f68080',
-    ax2.plot(AWS_var['datetime'], AWS_var['melt_energy'], lw=2, color='k', label = 'Observed $E_{melt}$', zorder = 2)
-    ax2.set_xlim(AWS_var['datetime'][0], AWS_var['datetime'][-1])
-    ax.set_xlim(AWS_var['datetime'][0], AWS_var['datetime'][-1])
+    ax2.plot(AWS_var.index, AWS_var['melt_energy'], lw=2, color='k', label = 'Observed $E_{melt}$', zorder = 1)
+    ax.plot(AWS_var.index[:-1], vars_yr['Emelt'][:, 0, lat_dict[station], lon_dict[station]].data, lw = 2, color = '#f68080', label = 'Modelled $E_{melt}$', zorder = 5)#color = '#f68080',
+    ax2.set_xlim(AWS_var.index[0], AWS_var.index[-1])
+    ax.set_xlim(AWS_var.index[0], AWS_var.index[-1])
     days = mdates.DayLocator(interval=1)
-    dayfmt = mdates.DateFormatter('%d %b')
-    ax.set_ylim(0, 150)
+    dayfmt = mdates.DateFormatter('%b %Y')
+    ax.set_ylim(0, 100)
     ax.set_ylabel('$E_{melt}$ \n(W m$^{-2}$)', rotation = 0, fontsize = 36, labelpad = 100, color = 'dimgrey')
     ax2.axis('off')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     plt.setp(ax.spines.values(), linewidth=2, color='dimgrey', )
-    ax.tick_params(axis='both', which='both', labelsize=36, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
-    [l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
+    ax.tick_params(axis='both', which='both', labelsize=36, length = 5, width = 2, color = 'dimgrey', labelcolor='dimgrey', pad=10)
+    #[l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
     [l.set_visible(False) for (w, l) in enumerate(ax.xaxis.get_ticklabels()) if w % 2 != 0]
     ax.xaxis.set_major_formatter(dayfmt)
+    #xticks = ax.set_xticklabels(['2014', 'Jan 2012', '2014', 'Jan 2012', 'Jan 2015', '2015'])
+    yticks = ax.set_yticks([0,50,100])
     #Legend
     lns = [Line2D([0],[0], color='k', linewidth = 2.5),
-           Line2D([0],[0], color =  '#1f78b4', linewidth = 2.5)]
+           Line2D([0],[0], color =   '#f68080', linewidth = 2.5)]
     #       Line2D([0],[0], color =  '#33a02c', linewidth = 2.5)]          #Line2D([0],[0], color = '#f68080', linewidth = 2.5)]
     labs = ['Observed $E_{melt}$', 'Modelled $E_{melt}$']#['Observed melt flux', 'ctrl run', 'BL run']#
     lgd = ax2.legend(lns, labs, bbox_to_anchor=(0.55, 1.1), loc=2, fontsize=28)
@@ -1251,12 +1261,11 @@ def melt_plot(AWS_var, vars_yr, station):
     lgd.get_frame().set_linewidth(0.0)
     plt.subplots_adjust(left = 0.22, right = 0.95)
     #plt.savefig('/users/ellgil82/figures/Cloud data/OFCAP_period/OFCAP_melt_BL.png', transparent = True)
-    if host == 'bsl':
-        plt.savefig('/users/ellgil82/figures/Hindcast/2011_melt.png', transparent = True)
-        plt.savefig('/users/ellgil82/figures/Hindcast/2011_melt.eps', transparent=True)
+    plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Melt_time_series_obs_v_mod_+ ' + station + '.png', transparent = True)
+    plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Melt_time_series_obs_v_mod_+ ' + station + '.eps', transparent=True)
     plt.show()
 
-#melt_plot(AWS_var = AWS14_SEB, vars_yr = vars_2011, station = 'AWS14')
+melt_plot(AWS_var = ANN_18, vars_yr = srs_18_trimmed, station = 'AWS18')
 
 def melt_map(vars_yr, AWS14_var, AWS17_var, calc, which):
     fig, axs  = plt.subplots(1,1, figsize = (10, 10))#, figsize=(20, 12), frameon=False)

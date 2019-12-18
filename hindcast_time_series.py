@@ -377,9 +377,7 @@ def calc_total_melt():
     all_vars['melt'].data = np.ma.masked_array(all_vars['melt'].data, mask=np.broadcast_to(Larsen_mask, all_vars['melt'].shape))
     # Calculate melt total over all years
     melt_sum = all_vars['melt'].collapsed('time', iris.analysis.SUM) # total melt at each grid point over 20 years (kg m-2)
-
     totm = all_vars['melt'].collapsed('latitude', iris.analysis.SUM)
-
     #totm = melt_sum.collapsed('latitude', iris.analysis.SUM)
     totm = totm.collapsed('longitude', iris.analysis.SUM)
     tot_annual_melt = totm.data/20.

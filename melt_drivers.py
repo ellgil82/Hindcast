@@ -56,25 +56,27 @@ def load_vars(year):
     try:
         melt_flux = iris.load_cube(filepath + year + '_land_snow_melt_flux.nc', 'Snow melt heating flux')  # W m-2
         melt_amnt = iris.load_cube(filepath + year + '_land_snow_melt_amnt.nc', 'Snowmelt')  # kg m-2
+        melt_amnt = iris.analysis.maths.multiply(melt_amnt, 108.)
         melt_rate = iris.load_cube(filepath + year + '_Ts.nc', 'surface_temperature')
         SW_down = iris.load_cube(filepath + year + '_surface_SW_down.nc', 'surface_downwelling_shortwave_flux_in_air')
         LW_down = iris.load_cube(filepath + year + '_surface_LW_down.nc', 'IR down')
         cloud_cover = iris.load_cube(filepath + year + '_cl_frac.nc', 'Total cloud')
         IWP = iris.load_cube(filepath + year + '_total_column_ice.nc', 'atmosphere_cloud_ice_content')
         LWP = iris.load_cube(filepath + year + '_total_column_liquid.nc', 'atmosphere_cloud_liquid_water_content')
+        WVP = iris.load_cube(filepath + year + '_total_column_vapour.nc')
         #melt_rate = iris.load_cube(filepath + year + '_land_snow_melt_rate.nc', 'Rate of snow melt on land')  # kg m-2 s-1
-        foehn_freq = iris.load_cube(filepath + 'foehn_pct.nc') # full series
+        foehn_freq = iris.load_cube(filepath + 'FI_norm.nc')
         orog = iris.load_cube(ancil_path + 'orog.nc')
         orog = orog[0, 0, :, :]
         LSM = iris.load_cube(ancil_path + 'new_mask.nc')
         LSM = LSM[0, 0, :, :]
     except iris.exceptions.ConstraintMismatchError:
         print('Files not found')
-    var_list = [melt_rate, melt_amnt, melt_flux, SW_down, cloud_cover, IWP, LWP, LW_down]
+    var_list = [melt_rate, melt_amnt, melt_flux, SW_down, cloud_cover, IWP, LWP, WVP, LW_down]
     for i in var_list:
         real_lon, real_lat = rotate_data(i, 2, 3)
     vars_yr = {'melt_flux': melt_flux[:,0,:,:], 'melt_rate': melt_rate[:,0,:,:], 'melt_amnt': melt_amnt[:,0,:,:], 'SW_down': SW_down[:,0,:,:],  'LW_down': LW_down[:,0,:,:], 'cl_cover': cloud_cover[:,0,:,:],
-               'IWP': IWP[:,0,:,:], 'LWP': LWP[:,0,:,:], 'foehn_freq': foehn_freq, 'orog': orog, 'lsm': LSM,'lon': real_lon, 'lat': real_lat, 'year': year}
+               'IWP': IWP[:,0,:,:], 'LWP': LWP[:,0,:,:], 'WVP': WVP[:,0,:,:], 'foehn_freq': foehn_freq,  'orog': orog, 'lsm': LSM,'lon': real_lon, 'lat': real_lat, 'year': year}
     return vars_yr
 
 #surf= load_vars('2012')
@@ -103,6 +105,17 @@ station_dict = {'AWS14_SEB_2009-2017_norp.csv': 'AWS14',
               'AWS17_SEB_2011-2015_norp.csv': 'AWS17',
                 'AWS18_SEB_2014-2017_norp.csv': 'AWS18'}
 
+## Melt index
+# Define melt_percentile
+melt_amnt = np.copy(surf['melt_amnt'].data)
+melt_amnt = np.ma.masked_greater(melt_amnt, 500)
+melt_90_pctl = np.percentile(a = melt_amnt, q = 90, axis = 0)
+masked_3d_melt = np.ma.masked_less(surf['melt_amnt'].data, np.broadcast_to(melt_90_pctl, surf['melt_amnt'].shape)) # this becomes composite mask
+
+melt_90_pctl = np.zeros((220,220))
+for i in range(220):
+    for j in range(220):
+        melt_90_pctl[i,j] = np.percentile(melt_amnt[:,i,j].data, q = 90)
 
 ## Diagnose correlation between shortwave flux and melting across model domain
 def cloud_melt(station, year_list):
@@ -134,7 +147,6 @@ def cloud_melt(station, year_list):
         cloud_melt.to_csv(filepath + 'cloud_v_melt_stats_model_' + station + '.csv')
 
 #cloud_melt(station = 'AWS14', year_list= year_list)
-#cloud_melt(station = 'AWS15', year_list = year_list)
 #cloud_melt(station = 'AWS17', year_list= year_list)
 #cloud_melt(station = 'AWS18', year_list = year_list)
 #cloud_melt(station = 'ice_shelf', year_list= year_list)
@@ -154,8 +166,6 @@ for year in year_list:
     total_melt_MAM = np.cumsum(MAM['melt_amnt'].data[:, lat_dict[station], lon_dict[station]], axis=0)[-1]
     total_melt_JJA = np.cumsum(JJA['melt_amnt'].data[:, lat_dict[station], lon_dict[station]], axis=0)[-1]
     total_melt_SON = np.cumsum(SON['melt_amnt'].data[:, lat_dict[station], lon_dict[station]], axis=0)[-1]
-
-
 
 stats_df = pd.DataFrame(index = ['r', 'r_squared', 'p', 'std_err'])
 slope, intercept, r_value, p_value, std_err = stats.linregress(foehn_freq['ANN'],total_melt_ANN)
@@ -198,13 +208,7 @@ def run_corr(year_vars, xvar, yvar):
             p[x,y] = p_value
             err[x,y] = std_err
     r2 = r**2
-    return r, r2, p, err, x_masked, y_masked
-
-Larsen_mask = np.zeros((220, 220))
-lsm_subset = year_vars['lsm'].data[:150, 90:160]
-Larsen_mask[:150, 90:160] = lsm_subset
-Larsen_mask[year_vars['orog'][:,:].data > 50] = 0
-Larsen_mask = np.logical_not(Larsen_mask)
+    return r, r2, p, err, x_masked, y_masked, Larsen_mask
 
 def correlation_maps(year_list, xvar, yvar):
     if len(year_list) > 1:
@@ -216,9 +220,13 @@ def correlation_maps(year_list, xvar, yvar):
         for year in year_list:
             vars_yr = load_vars(year)
             ax[plot].axis('off')
-            r, r2, p, err, xmasked, y_masked = run_corr(vars_yr, xvar = xvar, yvar = yvar[:58444])
-            squished_cmap = shiftedColorMap(cmap = matplotlib.cm.viridis, min_val = 0, max_val = 1, name = 'squished_cmap', var = r, start = 0.25, stop = 0.75)
-            c = ax[plot].pcolormesh(r, cmap = matplotlib.cm.Spectral, vmin = -1., vmax = 1.)
+            r, r2, p, err, xmasked, y_masked, Larsen_mask = run_corr(vars_yr, xvar = xvar, yvar = yvar[:58444])
+            if np.mean(r) < 0:
+                squished_cmap = shiftedColorMap(cmap=matplotlib.cm.bone_r, min_val=-1., max_val=0., name='squished_cmap', var=r, start=0.25, stop=0.75)
+                c = ax[plot].pcolormesh(r, cmap=matplotlib.cm.Spectral, vmin=-1., vmax=0.)
+            elif np.mean(r) > 0:
+                squished_cmap = shiftedColorMap(cmap = matplotlib.cm.gist_heat_r, min_val = 0, max_val = 1, name = 'squished_cmap', var = r, start = 0.25, stop = 0.75)
+                c = ax[plot].pcolormesh(r, cmap = matplotlib.cm.Spectral, vmin = 0., vmax = 1.)
             ax[plot].contour(vars_yr['lsm'].data, colors='#222222', lw=2)
             ax[plot].contour(vars_yr['orog'].data, colors='#222222', levels=[100])
             comp_r = comp_r + r
@@ -230,7 +238,14 @@ def correlation_maps(year_list, xvar, yvar):
             plot = plot + 1
         mean_r_composite = comp_r / len(year_list)
         ax[-1].contour(vars_yr['lsm'].data, colors='#222222', lw=2)
-        ax[-1].pcolormesh(mean_r_composite, cmap = matplotlib.cm.Spectral, vmin = -1., vmax = 1.)
+        if np.mean(mean_r_composite) < 0:
+            squished_cmap = shiftedColorMap(cmap=matplotlib.cm.bone_r, min_val=-1., max_val=0., name='squished_cmap',
+                                            var=mean_r_composite, start=0.25, stop=0.75)
+            c = ax[-1].pcolormesh(mean_r_composite, cmap=squished_cmap, vmin=-1., vmax=0.)
+        elif np.mean(r) > 0:
+            squished_cmap = shiftedColorMap(cmap=matplotlib.cm.gist_heat_r, min_val=0, max_val=1, name='squished_cmap',
+                                            var=mean_r_composite, start=0.25, stop=0.75)
+            c = ax[-1].pcolormesh(r, cmap=squished_cmap, vmin=0., vmax=1.)
         ax[-1].contour(vars_yr['orog'].data, colors='#222222', levels=[100])
         ax[-1].text(0., 1.1, s='Composite', fontsize=24, color='dimgrey', transform=ax[-1].transAxes)
         cb = plt.colorbar(c, orientation='horizontal', cax=CbAx, ticks=[0, 0.5, 1])
@@ -250,7 +265,7 @@ def correlation_maps(year_list, xvar, yvar):
             plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/'+ xvar + '_v_' + yvar + '_all_years.eps', transparent=True)
     # Save composite separately
     elif len(year_list) == 1:
-        r, r2, p, err, xmasked, y_masked = run_corr(surf, xvar=xvar, yvar=yvar)
+        r, r2, p, err, xmasked, y_masked, Larsen_mask = run_corr(surf, xvar=xvar, yvar=yvar)
     unmasked_idx = np.where(y_masked.mask[0, :, :] == 0)
     sig = np.ma.masked_array(p, mask=y_masked[0, :, :].mask)
     sig = np.ma.masked_greater(sig, 0.01)
@@ -289,7 +304,7 @@ for i in ['LW_down', 'SW_down', 'IWP', 'LWP']:
     correlation_maps(['1998-2017'], xvar = 'cl_cover', yvar = i)
 
 for i in ['foehn_freq']:#['cl_cover', 'SW_down', 'LW_down', 'IWP', 'LWP']:
-#    correlation_maps(year_list = year_list, xvar = 'melt_amnt', yvar = i)
+    correlation_maps(year_list = year_list, xvar = 'melt_amnt', yvar = i)
 
 correlation_maps(['1998-2017'], xvar = 'melt_amnt', yvar = 'LW_down')
 
@@ -322,26 +337,3 @@ def foehn_melt():
     return r, r2, p, err, x_masked, y_masked
 
 r, r2, p, err, x_masked, y_masked = foehn_melt()
-
-def _cmap_discretize(cmap, N):
-    if type(cmap) == str:
-        cmap = plt.get_cmap(cmap)
-    colors_i = np.concatenate((np.linspace(0, 1., N), (0., 0., 0., 0.)))
-    colors_rgba = cmap(colors_i)
-    indices = np.linspace(0, 1., N + 1)
-    cdict = {}
-    for ki, key in enumerate(('red', 'green', 'blue')):
-        cdict[key] = [(indices[i], colors_rgba[i - 1, ki], colors_rgba[i, ki])
-                      for i in range(N + 1)]
-    # Return colormap object.
-    return cdict, matplotlib.colors.LinearSegmentedColormap(cmap.name + "_%d" % N, cdict, 1024)
-
-cdict, cmap_lin = _cmap_discretize('viridis', 1024)
-
-squish = shiftedColorMap(cmap= matplotlib.cm.viridis, min_val = 0.25, max_val = 0.75, name = 'squish', var = r, start = 0., stop = 1.)
-
-clevs = np.arange(0.25, 0.75)
-
-c = plt.pcolormesh(r, cmap = matplotlib.cm.viridis, vmin = 0.0, vmax = .7)
-plt.colorbar(c, extend = 'both')
-plt.show()
