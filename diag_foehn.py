@@ -573,38 +573,58 @@ def combo_foehn(meas_lat, meas_lon, prof_var, surf_var):
 
 def full_srs_foehn():
 	# Load surface variables
-	Tair = iris.load_cube(filepath + '1998-2017_Tair_1p5m.nc', 'air_temperature')
-	FF_10m = iris.load_cube(filepath + '1998-2017_FF_10m.nc', 'wind_speed')
-	RH = iris.load_cube(filepath + '1998-2017_RH_1p5m.nc', 'relative_humidity')
-	theta_pp = iris.load_cube(filepath + '*pe000.pp', 'air_potential_temperature')
-	theta_pp = theta_pp[:, :40, :, :]
-	u_prof = iris.load_cube(filepath + '1998-2017_u_wind_full_profile.nc')
-	Tair.convert_units('celsius')
-	FF_10m = FF_10m[:, :, 1:, :]
-	dT = np.zeros((58434, 220,220))
-	dFF = np.zeros((58434, 220,220))
-	dRH = np.zeros((58434, 220,220))
-	for i in range(Tair.shape[0]-2):
-		dT[i,:,:] = ((Tair[i+2,0,:,:].data - Tair[i,0,:,:].data)/ Tair[i,0,:,:].data) * 100.
-		dRH[i, :, :] = ((1 - (RH[i + 2, 0, :, :].data - RH[i, 0, :, :].data)) / RH[i, 0, :, :].data) * 100.
-		#dFF[i, :, :] = ((FF_10m[i + 2, 0, :, :].data - FF_10m[i, 0, :, :].data) /  FF_10m[i, 0, :, :].data) * 100.
-	u_Z1 = np.mean(u_prof[:, 27, 80:140, 4:42].data, axis = (1,2)) >= 2. # take mean over area, not just at one point
-	u_Z1 = np.repeat(u_Z1[2:-3], 2)
-	f = np.reshape(np.tile(u_Z1, (1, 1, 1)), ((u_Z1.shape[0]), 1, 1))
-	u_Z1 = np.broadcast_to(f, (dT.shape))
-	dT = iris.cube.Cube(dT)
-	dRH = iris.cube.Cube(dRH)
-	#dFF = iris.cube.Cube(dFF)
-	foehn_cond_noFF = iris.analysis.maths.add(dRH, dT)
-	foehn_cond_noFF.data[u_Z1 < 2.0] = 0.
-	iris.save(foehn_cond_noFF, filepath + 'foehn_index_noFF.nc')
-	foehn_cond = iris.analysis.maths.add(foehn_cond_noFF, dFF)
-	foehn_cond.data[u_Z1 < 2.0] = 0.
-	#FI = iris.cube.Cube(foehn_cond)
-	iris.save(foehn_cond, filepath + 'foehn_index.nc')
-	return foehn_cond, foehn_cond_noFF
+Tair = iris.load_cube(filepath + '1998-2017_Tair_1p5m.nc', 'air_temperature')
+FF_10m = iris.load_cube(filepath + '1998-2017_FF_10m.nc', 'wind_speed')
+RH = iris.load_cube(filepath + '1998-2017_RH_1p5m.nc', 'relative_humidity')
+u_prof = iris.load_cube(filepath + '1998-2017_u_wind_full_profile.nc')
+#Tair.convert_units('celsius')
+#Tair = Tair[:,0,:,:] - 273.15
+FF_10m = FF_10m[:, 0, 1:, :]
+RH = RH[:,0,:,:]
+from iris.analysis.calculus import cube_delta
+dT = cube_delta(Tair, 'time')
+dRH = cube_delta(RH, 'time')
+dFF = cube_delta(FF_10m, 'time')
+dT_pct = iris.cube.Cube(dT[1::2].data/Tair[::2].data[:29217])
+dRH_pct = iris.cube.Cube(dRH[1:2:].data/Tair[::2].data[:29217])
+dFF_pct = iris.cube.Cube(dFF[1::2].data/FF_10m[::2].data[:29217])
+iris.save(dT_pct, filepath + 'dT_pct_foehn.nc')
+iris.save(dRH_pct, filepath + 'dRH_pct_foehn.nc')
+iris.save(dFF_pct, filepath + 'dFF_pct_foehn.nc')
+#dT_pct = iris.load_cube(filepath + 'dT_pct_foehn.nc')
+#dRH_pct = iris.load_cube(filepath + 'dRH_pct_foehn.nc')
+u_Z1 = np.mean(u_prof[::2, 27, 80:140, 4:42].data, axis = (1,2))[:29217] >= 2. # take mean over area, not just at one point
+u_Z1 = np.repeat(u_Z1[2:-3], 2)
+f = np.reshape(np.tile(u_Z1, (1, 1, 1)), ((u_Z1.shape[0]), 1, 1))
+u_Z1 = np.broadcast_to(f, (dT_pct.shape))
+foehn_cond_noFF = iris.analysis.subtract(dT_pct, dRH_pct)
+foehn_cond_noFF.data[u_Z1 == 0] = 0.
+#foehn_cond_noFF_cube = iris.cube.Cube(data = foehn_cond_noFF)
+iris.save(foehn_cond_noFF, filepath + 'foehn_index_noFF.nc')
+foehn_cond = iris.analysis.maths.add(foehn_cond_noFF,dFF_pct)
+#foehn_cond = FI.data.reshape(58434, 48400)
+#foehn_cond_norm = normalize(foehn_cond, axis = 0)
+#foehn_cond_norm = foehn_cond_norm.reshape(58434, 220,220)
+iris.save(foehn_cond, filepath + 'foehn_index.nc')
+	return foehn_cond, foehn_cond_noFF, dRH, dT, dFF, u_Z1
 
-#FI, FI_noFF = full_srs_foehn()
+foehn_cond, foehn_cond_noFF, dRH, dT, dFF, u_Z1 = full_srs_foehn()
+
+
+Tair = iris.load_cube(filepath + '1998-2017_Tair_1p5m.nc', 'air_temperature')
+#FF_10m = iris.load_cube(filepath + '1998-2017_FF_10m.nc', 'wind_speed')
+RH = iris.load_cube(filepath + '1998-2017_RH_1p5m.nc', 'relative_humidity')
+u_prof = iris.load_cube(filepath + '1998-2017_u_wind_full_profile.nc')
+FF_10m = FF_10m[:, 0, 1:, :]
+RH = RH[:,0,:,:]
+dT = np.gradient(Tair.data, 2, axis = 0) # find gradient between timesteps with t=2 spacing (i.e. 6 hours)
+dRH = np.gradient(RH.data, 2, axis = 0)
+u_Z1 = np.mean(u_prof[:, 27, 80:140, 4:42].data, axis = (1,2))[:29222] >= 2. # take mean over area, not just at one point
+u_Z1 = np.repeat(u_Z1, 2)#[2:-3]
+f = np.reshape(np.tile(u_Z1, (1, 1, 1)), ((u_Z1.shape[0]), 1, 1))
+u_Z1 = np.broadcast_to(f, (dT.shape))
+FI_noFF = dT-dRH
+FI_noFF[u_Z1 == 0] = np.nan
 
 surf_vars, prof_vars = load_vars('2012')
 
@@ -648,7 +668,6 @@ def foehn_freq_stats(station, yr_list):
 		print(yr_stats[year])
 	print(yr_stats)
 	yr_stats.to_csv(filepath + 'Annual_foehn_frequency_modelled_FROUDE'+station+'.csv')
-
 
 def seas_foehn(year_list, station):
 	print('Running seasonal foehn stats at ' + station_dict[station])
@@ -723,11 +742,11 @@ def seas_foehn(year_list, station):
 #seas_foehn(year_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'], station = 'AWS18_SEB_2014-2017_norp.csv')
 #seas_foehn(year_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'], station = 'AWS15_hourly_2009-2014.csv')
 
-for s in station_dict.keys():#'[ 'AWS15_hourly_2009-2014.csv','AWS17_SEB_2011-2015_norp.csv',  'AWS18_SEB_2014-2017_norp.csv']:
+#for s in station_dict.keys():#'[ 'AWS15_hourly_2009-2014.csv','AWS17_SEB_2011-2015_norp.csv',  'AWS18_SEB_2014-2017_norp.csv']:
 	#seas_foehn(station = s, year_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007',  '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'])
-	foehn_freq_stats(station = s, yr_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007',  '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'])
+	#foehn_freq_stats(station = s, yr_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007',  '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'])
 
-FI, FI_noFF = full_srs_foehn()
+#FI, FI_noFF = full_srs_foehn()
 
 def foehn_freq_bar(station, yr_list):
 	foehn_stats = pd.DataFrame(index = ['observed', 'surface method', 'Froude method','isentrope method' ])
@@ -778,19 +797,29 @@ def spatial_foehn(calc):
 		foehn_pct = np.ma.masked_where(condition = prof_var['lsm'].data == 0., a= (total_foehn/np.float(len(dT)))*100.)
 	else:
 		foehn_pct = iris.load_cube(filepath + 'foehn_pct.nc')
+		try:
+			LSM = iris.load_cube(filepath + 'new_mask.nc')
+			orog = iris.load_cube(filepath + 'orog.nc')
+			orog = orog[0, 0, :, :]
+			lsm = LSM[0, 0, :, :]
+			for i in [orog, lsm]:
+				real_lon, real_lat = rotate_data(i, np.ndim(i) - 2, np.ndim(i) - 1)
+		except iris.exceptions.ConstraintMismatchError:
+			print('Files not found')
 	# Plot
 	fig, ax = plt.subplots(figsize=(8, 8))
 	CbAx = fig.add_axes([0.25, 0.18, 0.5, 0.02])
 	ax.axis('off')
-	c = ax.pcolormesh(np.ma.masked_where((prof_var['orog'].data >= 100.), foehn_pct.data), cmap = 'OrRd', vmin = 3, vmax = 12)  #divide by 20 to get mean annual number of foehn/20.
+	c = ax.pcolormesh(foehn_pct.data, cmap = 'OrRd', vmin = 3, vmax = 12)
+	#c = ax.pcolormesh(np.ma.masked_where((prof_var['orog'].data >= 100.), foehn_pct.data), cmap = 'OrRd', vmin = 3, vmax = 12)  #divide by 20 to get mean annual number of foehn/20.
 	cb = plt.colorbar(c, cax = CbAx, orientation = 'horizontal', extend = 'both', ticks = [0,5,10, 15])#cb.solids.set_edgecolor("face")
 	cb.outline.set_edgecolor('dimgrey')
 	cb.ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0, tick1On=False, tick2On=False)
 	cb.outline.set_linewidth(2)
 	cb.ax.xaxis.set_ticks_position('bottom')
 	cb.set_label('Mean foehn occurrence (% of time)', fontsize = 24,  color='dimgrey', labelpad = 20)
-	ax.contour(prof_var['lsm'].data, levels = [1], colors = '#222222')
-	ax.contour(prof_var['orog'].data, levels = [100], colors = '#222222')
+	ax.contour(lsm.data, levels = [1], colors = '#222222')
+	ax.contour(orog.data, levels = [50], colors = '#222222')
 	plt.subplots_adjust( bottom = 0.25, top = 0.95)
 	if host == 'bsl':
 		plt.savefig('/users/ellgil82/figures/Hindcast/foehn/foehn_occurrence_spatial_composite.png', transparent=True)
@@ -798,11 +827,11 @@ def spatial_foehn(calc):
 	elif host == 'jasmin':
 		plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/foehn_occurrence_spatial_composite_surface_criteria.png', transparent=True)
 		plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/foehn_occurrence_spatial_composite_surface_criteria.eps', transparent=True)
-	#plt.show()
+	plt.show()
 	if calc == 'yes':
 		return total_foehn, foehn_pct, all_cond
 
-#total_foehn, foehn, all_cond = spatial_foehn(calc = 'no')
+total_foehn, foehn, all_cond = spatial_foehn(calc = 'no')
 #total_foehn, foehn, all_cond = spatial_foehn(calc = 'yes')
 
 #fpct = iris.cube.Cube(data = foehn_pct, units = 'percent', long_name = 'foehn occurrence')
