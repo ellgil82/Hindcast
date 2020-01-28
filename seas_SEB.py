@@ -1,4 +1,3 @@
-
 # Define where the script is running
 host = 'jasmin'
 
@@ -126,11 +125,11 @@ def total_SEB_model(seas_list, loc):
         ax.spines['top'].set_visible(False)
         ax.set_ylim(-100, 100)
         ax.set_xlim(DJF['Time_srs'][0], DJF['Time_srs'][-1])
-        ax.plot(DJF['Time_srs'], DJF['SWnet'][:,lon_dict[loc], lat_dict[loc]].data, color = '#6fb0d2', lw = 2.5, label = 'Net shortwave flux')
-        ax.plot(DJF['Time_srs'], DJF['LWnet'][:,lon_dict[loc], lat_dict[loc]].data, color = '#86ad63', lw = 2.5, label = 'Net longwave flux')
-        ax.plot(DJF['Time_srs'], DJF['HS'][:,lon_dict[loc], lat_dict[loc]].data, color = '#1f78b4', lw = 2.5, label = 'Sensible heat flux')
-        ax.plot(DJF['Time_srs'], DJF['HL'][:,lon_dict[loc], lat_dict[loc]].data, color = '#33a02c', lw = 2.5, label = 'Latent heat flux')
-        ax.plot(DJF['Time_srs'], DJF['melt'][:,lon_dict[loc], lat_dict[loc]].data, color = '#f68080', lw = 2.5, label = 'Melt flux')
+        ax.plot(DJF['Time_srs'], DJF['SWnet'][:,lon_dict[loc], lat_dict[loc]].data, marker = '+', color = '#6fb0d2', lw = 4, label = 'Net shortwave flux')
+        ax.plot(DJF['Time_srs'], DJF['LWnet'][:,lon_dict[loc], lat_dict[loc]].data, marker = 'X', color = '#86ad63', lw = 4, label = 'Net longwave flux')
+        ax.plot(DJF['Time_srs'], DJF['HS'][:,lon_dict[loc], lat_dict[loc]].data, marker = 'O', color = '#1f78b4', lw = 4, label = 'Sensible heat flux')
+        ax.plot(DJF['Time_srs'], DJF['HL'][:,lon_dict[loc], lat_dict[loc]].data, marker = '*', color = '#33a02c', lw = 4, label = 'Latent heat flux')
+        ax.plot(DJF['Time_srs'], DJF['melt'][:,lon_dict[loc], lat_dict[loc]].data, color = '#f68080', lw = 4, label = 'Melt flux')
         lgd = plt.legend(fontsize = 18, frameon = False)
         for ln in lgd.get_texts():
             plt.setp(ln, color = 'dimgrey')
@@ -158,29 +157,29 @@ SON = load_var('SON')
 def SEB_subplot():
     fig, ax = plt.subplots(2,2,sharex= True, figsize=(24, 12))
     ax = ax.flatten()
-    colour_dict = {'SWdown': '#6fb0d2', 'SWnet': '#b733ff', 'SWup': '#6fb0d2', 'LWdown': '#86ad63', 'LWnet': '#de2d26', 'LWup': '#86ad63','HL': '#33aeff', 'HS': '#ff6500', 'Etot': '#222222', 'melt': '#f68080'}
+    colour_dict = {'SWdown': ('#6fb0d2', 'o'), 'SWnet': ('#b733ff', 'o'), 'SWup': ('#6fb0d2', 'o'), 'LWdown': ('#86ad63','X'), 'LWnet': ('#de2d26','X'), 'LWup': ('#86ad63','X'),'HL': ('#33aeff', '*'), 'HS': ('#ff6500', '^'), 'Etot': ('#222222', 's'), 'melt': ('#f68080', 'P')}
     leg_dict = {'SWnet': 'SW$_{net}$', 'LWnet': 'LW$_{net}$', 'HL': 'H$_{L}$', 'HS': 'H$_{S}$', 'Etot': 'E$_{tot}$', 'melt': 'E$_{melt}$'}
     lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'j', 10: 'k', 11: 'l' }
-    UTC_MAM_inlet = pd.DataFrame()
-    UTC_SON_inlet = pd.DataFrame()
-    UTC_MAM_shelf = pd.DataFrame()
-    UTC_SON_shelf = pd.DataFrame()
+    UTC_DJF_inlet = pd.DataFrame()
+    UTC_JJA_inlet = pd.DataFrame()
+    UTC_DJF_shelf = pd.DataFrame()
+    UTC_JJA_shelf = pd.DataFrame()
     for j in ['SWnet', 'LWnet', 'HS', 'HL', 'Etot', 'melt']:
-        ice_shelf_mn = ((MAM[j][:, lon_dict['AWS14'], lat_dict['AWS14']].data + MAM[j][:, lon_dict['AWS15'], lat_dict['AWS15']].data) / 2.)
-        inlet_mn = ((MAM[j][:, lon_dict['AWS17'], lat_dict['AWS17']].data + MAM[j][:, lon_dict['AWS18'], lat_dict['AWS18']].data) / 2.)
-        UTC_MAM_inlet[j] = np.concatenate((inlet_mn[1:], inlet_mn[:2]), axis=0)
-        UTC_MAM_shelf[j] = np.concatenate((ice_shelf_mn[1:], ice_shelf_mn[:2]), axis=0)
-        ice_shelf_mn = ((SON[j][:, lon_dict['AWS14'], lat_dict['AWS14']].data + SON[j][:, lon_dict['AWS15'], lat_dict['AWS15']].data) / 2.)
-        inlet_mn = ((SON[j][:, lon_dict['AWS17'], lat_dict['AWS17']].data + SON[j][:, lon_dict['AWS18'], lat_dict['AWS18']].data) / 2.)
-        UTC_SON_inlet[j] = np.concatenate((inlet_mn[1:], inlet_mn[:2]), axis=0)
-        UTC_SON_shelf[j] = np.concatenate((ice_shelf_mn[1:], ice_shelf_mn[:2]), axis=0)
-        ice_shelf = ax[0].plot(UTC_MAM_shelf[j], color=colour_dict[j], lw=2.5, label = leg_dict[j])
-        inlet = ax[1].plot(UTC_MAM_inlet[j], color=colour_dict[j], lw=2.5, label = leg_dict[j])
-        ax[2].plot(UTC_SON_inlet[j], color=colour_dict[j], lw=2.5, label = leg_dict[j])
-        ax[3].plot(UTC_SON_shelf[j], color=colour_dict[j], lw=2.5, label = leg_dict[j])
+        ice_shelf_mn = ((DJF[j][:, lon_dict['AWS14'], lat_dict['AWS14']].data + DJF[j][:, lon_dict['AWS15'], lat_dict['AWS15']].data) / 2.)
+        inlet_mn = ((DJF[j][:, lon_dict['AWS17'], lat_dict['AWS17']].data + DJF[j][:, lon_dict['AWS18'], lat_dict['AWS18']].data) / 2.)
+        UTC_DJF_inlet[j] = np.concatenate((inlet_mn[1:], inlet_mn[:2]), axis=0)
+        UTC_DJF_shelf[j] = np.concatenate((ice_shelf_mn[1:], ice_shelf_mn[:2]), axis=0)
+        ice_shelf_mn = ((JJA[j][:, lon_dict['AWS14'], lat_dict['AWS14']].data + JJA[j][:, lon_dict['AWS15'], lat_dict['AWS15']].data) / 2.)
+        inlet_mn = ((JJA[j][:, lon_dict['AWS17'], lat_dict['AWS17']].data + JJA[j][:, lon_dict['AWS18'], lat_dict['AWS18']].data) / 2.)
+        UTC_JJA_inlet[j] = np.concatenate((inlet_mn[1:], inlet_mn[:2]), axis=0)
+        UTC_JJA_shelf[j] = np.concatenate((ice_shelf_mn[1:], ice_shelf_mn[:2]), axis=0)
+        ice_shelf = ax[0].plot(UTC_DJF_shelf[j], color=colour_dict[j][0], marker = colour_dict[j][1],  markersize = 15, lw=4, label = leg_dict[j])
+        inlet = ax[1].plot(UTC_DJF_inlet[j], color=colour_dict[j][0],marker = colour_dict[j][1], markersize = 15, lw=4, label = leg_dict[j])
+        ax[2].plot(UTC_JJA_inlet[j], color=colour_dict[j][0], marker = colour_dict[j][1], lw=4, markersize = 15, label = leg_dict[j])
+        ax[3].plot(UTC_JJA_shelf[j], color=colour_dict[j][0], marker = colour_dict[j][1], lw=4, markersize = 15, label = leg_dict[j])
      #   AWS_srs = ax[plot].plot(AWS_dict[AWS]['datetime'],AWS_dict[AWS][j][:, lon_index18, lat_index18].data, color=col_dict[AWS], linewidth=2.5, label='MetUM output at '+ AWS)
     for i in range(4):
-        #ax[i].set_xlim(MAM['Time_srs'][1], MAM['Time_srs'][-1])
+        #ax[i].set_xlim(DJF['Time_srs'][1], DJF['Time_srs'][-1])
         ax[i].tick_params(axis='both', which='both', labelsize=24, tick1On = False, tick2On = False)
         ax[i].set_ylim(-60, 120)#[floor(np.floor(np.min(AWS_var[j])),5),ceil(np.ceil( np.max(AWS_var[j])),5)])
         ax[i].set_xlim(0,8.01)
@@ -209,8 +208,8 @@ def SEB_subplot():
     # Legend
     lgd = ax[3].legend(bbox_to_anchor=(0.3, 1), ncol = 2, loc=2, fontsize=20)
     ax[0].set_title('Ice shelf stations', fontsize = 30, color = 'dimgrey')
-    ax[0].text(-0.4, 0.55, zorder=100, transform=ax[0].transAxes, s='MAM', fontsize=32, fontweight='bold',color='dimgrey')
-    ax[2].text(-0.4, 0.55, zorder=100, transform=ax[2].transAxes, s='SON', fontsize=32, fontweight='bold', color='dimgrey')
+    ax[0].text(-0.4, 0.55, zorder=100, transform=ax[0].transAxes, s='DJF', fontsize=32, fontweight='bold',color='dimgrey')
+    ax[2].text(-0.4, 0.55, zorder=100, transform=ax[2].transAxes, s='JJA', fontsize=32, fontweight='bold', color='dimgrey')
     ax[1].set_title('Inlet stations', fontsize = 30, color = 'dimgrey')
     frame = lgd.get_frame()
     frame.set_facecolor('white')
@@ -223,9 +222,9 @@ def SEB_subplot():
         plt.savefig('/users/ellgil82/figures/Hindcast/1998-2017_inlet_v_ice_shelf_seas_SEB.eps')
     elif host == 'jasmin':
         plt.savefig(
-            '/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/1998-2017_inlet_v_ice_shelf_shoulder_seas_SEB.png')
+            '/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/1998-2017_inlet_v_ice_shelf_seas_SEB.png')
         plt.savefig(
-            '/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/1998-2017_inlet_v_ice_shelf_shoulder_seas_SEB.eps')
+            '/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/1998-2017_inlet_v_ice_shelf_seas_SEB.eps')
     plt.show()
 
 SEB_subplot()
