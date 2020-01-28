@@ -111,7 +111,7 @@ def total_melt(srs):
     total_melt = np.zeros((220, 220))
     total_melt = total_melt + (np.cumsum(srs['melt_amnt'].data, axis=0)[-1])
     #total_melt_masked = np.ma.masked_where(srs['orog'].data > 150, total_melt, copy = True)
-    totm = total_melt_masked.sum()
+    totm = total_melt.sum()
     return totm, total_melt#_masked
 
 totm, totm_masked = total_melt(full_srs)
@@ -126,14 +126,16 @@ def totm_map(vars_yr, mean):
         xticks = [0,200,400]
         cb_lab = 'Annual cumulative snow \nmelt amount (kg m$^{-2}$ year$^{-1}$)'
     elif mean == 'no':
-        c = ax.pcolormesh(total_melt, vmin=0,vmax=6000)
+	Larsen_box = np.zeros((220,220))
+	Larsen_box[40:135,90:155] = 1.
+        c = ax.pcolormesh(np.ma.masked_where((Larsen_box == 0.),totm_masked), vmin=0,vmax=6000)
         xticks = [0,3000, 6000]
-        cb_lab = 'Cumulative snow melt amount (mm w.e.)'
+        cb_lab = 'Cumulative surface \nmelt amount (mm w.e.)'
     ax.contour(vars_yr['lsm'].data, colors='#222222')
     ax.contour(vars_yr['orog'].data, colors='#222222', levels=[50])
-    plt.colorbar(c, cax = CbAx, orientation = 'horizontal')
+    #plt.colorbar(c, cax = CbAx, orientation = 'horizontal')
     cb = plt.colorbar(c, orientation='horizontal', cax=CbAx, ticks=xticks, extend = "max")
-    #cb.solids.set_edgecolor("face")
+    cb.solids.set_edgecolor("face")
     cb.outline.set_edgecolor('dimgrey')
     cb.ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0, tick1On=False,tick2On=False)
     cb.outline.set_linewidth(2)
@@ -156,6 +158,10 @@ def totm_map(vars_yr, mean):
             plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/melt_cumulative_spatial.png',transparent=True)
             plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/melt_cumulative_spatial.eps',transparent=True)
     plt.show()
+
+
+
+
 
 #totm_map(full_srs, mean = 'yes')
 totm_map(full_srs, mean = 'no')
@@ -298,14 +304,16 @@ def composite_melt_seasons(days_or_amnt):
     file_list = [first_file] + file_list
     total_melt = np.ma.masked_where((full_srs['lsm']== 0.), a = np.zeros((220,220)))
     for i in range(len(file_list)):
+	Larsen_box = np.zeros((220,220))
+	Larsen_box[40:135,90:155] = 1.
         melt = iris.load_cube(filepath + file_list[i])
         #melt_masked = np.ma.masked_where((full_srs['orog'].data > 250), a =melt.data)
-        c = ax[i].pcolormesh(melt.data, vmin = 0, vmax = vmax) #[0,:,:]), vmin = 0, vmax = 300)#, cmap = 'RdYlGn_r')
+        c = ax[i].pcolormesh(np.ma.masked_where((Larsen_box == 0.), melt.data), vmin = 0, vmax = vmax) #[0,:,:]), vmin = 0, vmax = 300)#, cmap = 'RdYlGn_r')
         ax[i].contour(full_srs['lsm'].data, colors = '#222222', lw = 2)
         ax[i].contour(full_srs['orog'].data, colors = '#222222', levels = [50])
         ax[i].text(0.4, 1.1, s= file_list[i][23:25]+'/'+file_list[i][26:28], fontsize=24, color='dimgrey', transform=ax[i].transAxes)
         total_melt = total_melt + np.ma.masked_where(full_srs['lsm'] == 0., a= melt.data)
-    c = ax[-1].pcolormesh(total_melt/18., vmin = 0, vmax = vmax)#, cmap = 'RdYlGn_r')np.ma.masked_where(full_srs['orog'].data > 250, a = np.ma.masked_where(full_srs['lsm'] == 0.,a =
+    c = ax[-1].pcolormesh(np.ma.masked_where((Larsen_box == 0.), total_melt/18.), vmin = 0, vmax = vmax)#, cmap = 'RdYlGn_r')np.ma.masked_where(full_srs['orog'].data > 250, a = np.ma.masked_where(full_srs['lsm'] == 0.,a =
     ax[-1].contour(full_srs['lsm'].data, colors='#222222', lw=2)
     ax[-1].contour(full_srs['orog'].data, colors='#222222', levels=[50])
     #ax[-1].text(0., 1.1, s='20-year mean', fontsize=24, color='dimgrey', transform=ax[-1].transAxes)
@@ -313,7 +321,7 @@ def composite_melt_seasons(days_or_amnt):
         label = 'Annual melt_duration (days per year)'
         ticks = [0, 50, 100]
     elif days_or_amnt == 'amnt':
-        label = 'Annual cumulative melt amount (mm w.e.)'
+        label = 'Annual cumulative surface melt amount (mm w.e.)'
         ticks = [0, 250, 500]
     cb = plt.colorbar(c, orientation = 'horizontal', cax = CbAx, ticks = ticks, extend = 'max')
     cb.solids.set_edgecolor("face")
