@@ -1,4 +1,3 @@
-
 # Define where the script is running
 host = 'jasmin'
 
@@ -65,7 +64,7 @@ def load_vars(year):
         LWP = iris.load_cube(filepath + year + '_total_column_liquid.nc', 'atmosphere_cloud_liquid_water_content')
         WVP = iris.load_cube(filepath + year + '_total_column_vapour.nc')
         #melt_rate = iris.load_cube(filepath + year + '_land_snow_melt_rate.nc', 'Rate of snow melt on land')  # kg m-2 s-1
-        foehn_freq = iris.load_cube(filepath + 'FI_norm.nc')
+        foehn_idx = iris.load_cube(filepath + 'FI_noFF_calc_grad.nc')
         orog = iris.load_cube(ancil_path + 'orog.nc')
         orog = orog[0, 0, :, :]
         LSM = iris.load_cube(ancil_path + 'new_mask.nc')
@@ -76,7 +75,7 @@ def load_vars(year):
     for i in var_list:
         real_lon, real_lat = rotate_data(i, 2, 3)
     vars_yr = {'melt_flux': melt_flux[:,0,:,:], 'melt_rate': melt_rate[:,0,:,:], 'melt_amnt': melt_amnt[:,0,:,:], 'SW_down': SW_down[:,0,:,:],  'LW_down': LW_down[:,0,:,:], 'cl_cover': cloud_cover[:,0,:,:],
-               'IWP': IWP[:,0,:,:], 'LWP': LWP[:,0,:,:], 'WVP': WVP[:,0,:,:], 'foehn_freq': foehn_freq,  'orog': orog, 'lsm': LSM,'lon': real_lon, 'lat': real_lat, 'year': year}
+               'IWP': IWP[:,0,:,:], 'LWP': LWP[:,0,:,:], 'WVP': WVP[:,0,:,:], 'foehn_idx': foehn_idx,  'orog': orog, 'lsm': LSM,'lon': real_lon, 'lat': real_lat, 'year': year}
     return vars_yr
 
 #surf= load_vars('2012')
@@ -188,26 +187,25 @@ SON_stats = [r_value, r_value**2, p, std_err]
 
 # at each *unmasked* gridpoint, compute correlations aver time axis
 
-def run_corr(year_vars, xvar, yvar):
-    # Make ice shelf mask
-    Larsen_mask = np.zeros((220, 220))
-    lsm_subset = year_vars['lsm'].data[:150, 90:160]
-    Larsen_mask[:150, 90:160] = lsm_subset
-    Larsen_mask[year_vars['orog'][:,:].data > 100] = 0
-    Larsen_mask = np.logical_not(Larsen_mask)
-    x_masked = np.ma.masked_array(year_vars[xvar].data[:58434], mask=np.broadcast_to(Larsen_mask, year_vars[xvar][:58434].shape))
-    y_masked = np.ma.masked_array(year_vars[yvar].data, mask=np.broadcast_to(Larsen_mask, year_vars[yvar].shape))
-    unmasked_idx = np.where(Larsen_mask == 0)
+def run_corr(xvar, yvar):
+    time_len = xvar.shape[0]
+    x_masked = np.zeros((time_len, 220,220))
+    y_masked = np.zeros((time_len, 220,220))
+    x_masked[:, 40:135, 90:155] = xvar[:, 40:135, 90:155]
+    y_masked[:, 40:135, 90:155] = yvar[:, 40:135, 90:155]
     r = np.zeros((220,220))
     p = np.zeros((220,220))
     err = np.zeros((220,220))
-    for x, y in zip(unmasked_idx[0],unmasked_idx[1]):
-        if x > 0. or y > 0.:
-            slope, intercept, r_value, p_value, std_err = stats.linregress(x_masked[:,x, y], y_masked[:,x, y])
-            r[x,y] = r_value
-            p[x,y] = p_value
-            err[x,y] = std_err
+    for x in range(40,135):
+        for y in range(90,155):
+            if x > 0. or y > 0.:
+                slope, intercept, r_value, p_value, std_err = stats.linregress(x_masked[:,x, y], y_masked[:,x, y])
+                r[x,y] = r_value
+                p[x,y] = p_value
+                err[x,y] = std_err
     r2 = r**2
+    Larsen_mask = np.zeros((220,220))
+    Larsen_mask[40:135, 90:155] = 1.
     return r, r2, p, err, x_masked, y_masked, Larsen_mask
 
 def correlation_maps(year_list, xvar, yvar):
@@ -220,7 +218,7 @@ def correlation_maps(year_list, xvar, yvar):
         for year in year_list:
             vars_yr = load_vars(year)
             ax[plot].axis('off')
-            r, r2, p, err, xmasked, y_masked, Larsen_mask = run_corr(vars_yr, xvar = xvar, yvar = yvar[:58444])
+            r, r2, p, err, xmasked, y_masked, Larsen_mask = run_corr(xvar = surf[xvar], yvar = surf[yvar])
             if np.mean(r) < 0:
                 squished_cmap = shiftedColorMap(cmap=matplotlib.cm.bone_r, min_val=-1., max_val=0., name='squished_cmap', var=r, start=0.25, stop=0.75)
                 c = ax[plot].pcolormesh(r, cmap=matplotlib.cm.Spectral, vmin=-1., vmax=0.)
@@ -261,49 +259,61 @@ def correlation_maps(year_list, xvar, yvar):
             plt.savefig('/users/ellgil82/figures/Hindcast/SMB/'+ xvar + '_v_' + yvar + '_all_years.png', transparent=True)
             plt.savefig('/users/ellgil82/figures/Hindcast/SMB/'+ xvar + '_v_' + yvar + '_all_years.eps', transparent=True)
         elif host == 'jasmin':
-            plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/'+ xvar + '_v_' + yvar + '_all_years.png', transparent=True)
-            plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/'+ xvar + '_v_' + yvar + '_all_years.eps', transparent=True)
+            plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Drivers/'+ xvar + '_v_' + yvar + '_all_years.png', transparent=True)
+            plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Drivers/'+ xvar + '_v_' + yvar + '_all_years.eps', transparent=True)
     # Save composite separately
     elif len(year_list) == 1:
-        r, r2, p, err, xmasked, y_masked, Larsen_mask = run_corr(surf, xvar=xvar, yvar=yvar)
-    unmasked_idx = np.where(y_masked.mask[0, :, :] == 0)
-    sig = np.ma.masked_array(p, mask=y_masked[0, :, :].mask)
-    sig = np.ma.masked_greater(sig, 0.01)
+        #print('')
+        r, r2, p, err, xmasked, y_masked, Larsen_mask = run_corr(xvar=surf[xvar].data, yvar=surf[yvar].data)
+    #unmasked_idx = np.where(Larsen_mask == 1)
+    sig = np.ma.masked_where((Larsen_mask == 0.), p)
+    sig = np.ma.masked_greater(sig, 0.1)
     mean_r_composite = r
-    fig, ax = plt.subplots(figsize=(8, 8))
+    fig, ax = plt.subplots(figsize=(9,12))
     ax.axis('off')
     # Make masked areas white, instead of colour used for zero in colour map
-    ax.contourf(y_masked.mask[0, :, :], cmap='Greys_r')
+    #ax.contourf(Larsen_mask, cmap='Greys_r')
     # Plot coastline
     ax.contour(surf['lsm'].data, colors='#222222', lw=2)
     # Plot correlations
-    c = ax.pcolormesh(np.ma.masked_where((y_masked.mask[0, :, :] == 1.), mean_r_composite), cmap=matplotlib.cm.Spectral)#, vmin=-1, vmax=1)
+    bwr_zero = shiftedColorMap(cmap=matplotlib.cm.Spectral_r, min_val=-0.02, max_val=0.1, name='spectral_zero', var=mean_r_composite[40:135, 90:155], start=0.15, stop=0.85)
+    c = ax.pcolormesh(np.ma.masked_where((Larsen_mask == 0.), mean_r_composite), cmap = bwr_zero, vmin=0, vmax=0.1)# cmap=matplotlib.cm.Spectral_r,
     # Plot 50 m orography contour on top
     ax.contour(surf['orog'].data, colors='#222222', levels=[100])
     # Overlay stippling to indicate signficance
-    ax.contourf(sig, hatches='...', alpha = 0.0)
+    ax.contourf(sig, color = 'dimgrey', hatches='....', alpha = 0.4)
     # Set up colourbar
-    cb = plt.colorbar(c, orientation='horizontal')#, ticks=[-1, 0, 1])
+    cbax = fig.add_axes([0.3, 0.2, 0.4, 0.03])
+    cb = plt.colorbar(c, cax = cbax, orientation='horizontal', ticks=[-0.02, 0, 0.05, 0.1], extend = 'both')
     cb.solids.set_edgecolor("face")
     cb.outline.set_edgecolor('dimgrey')
-    cb.ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0, tick1On=False,
-                      tick2On=False)
+    cb.ax.tick_params(which='both', axis='both', labelsize=28, labelcolor='dimgrey', pad=10, size=0, tick1On=False, tick2On=False)
     cb.outline.set_linewidth(2)
     cb.ax.xaxis.set_ticks_position('bottom')
-    cb.set_label('Correlation coefficient', fontsize=24, color='dimgrey', labelpad=30)
+    cb.set_label('Correlation coefficient', fontsize=32, color='dimgrey', labelpad=30)
+    plt.subplots_adjust(bottom = 0.3, top = 0.95)
+    if yvar == 'SON_FI':
+        ax.text(0., 0.95, zorder=6, transform=ax.transAxes, s='b', fontsize=36, fontweight='bold', color='dimgrey')
+    elif yvar == 'MAM_FI':
+        ax.text(0., 0.95, zorder=6, transform=ax.transAxes, s='a', fontsize=36, fontweight='bold', color='dimgrey')
     # Save figure
     if host == 'bsl':
-        plt.savefig('/users/ellgil82/figures/Hindcast/SMB/' + xvar + '_v_' + yvar + '_composite.png', transparent=True)
-        plt.savefig('/users/ellgil82/figures/Hindcast/SMB/' + xvar + '_v_' + yvar + '_composite.eps', transparent=True)
+        plt.savefig('/users/ellgil82/figures/Hindcast/SMB/' + xvar + '_v_' + yvar + '_composite.png')
+        plt.savefig('/users/ellgil82/figures/Hindcast/SMB/' + xvar + '_v_' + yvar + '_composite.eps')
     elif host == 'jasmin':
-        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + xvar + '_v_' + yvar + '_composite.png',transparent=True)
-        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + xvar + '_v_' + yvar + '_composite.eps',transparent=True)
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + xvar + '_v_' + yvar + '_composite.png')
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + xvar + '_v_' + yvar + '_composite.eps')
     plt.show()
+
+
+correlation_maps(year_list = ['1998-2017'], xvar = 'SON_melt', yvar = 'SON_FI')
+correlation_maps(year_list = ['1998-2017'], xvar = 'MAM_melt', yvar = 'MAM_FI')
+
 
 for i in ['LW_down', 'SW_down', 'IWP', 'LWP']:
     correlation_maps(['1998-2017'], xvar = 'cl_cover', yvar = i)
 
-for i in ['foehn_freq']:#['cl_cover', 'SW_down', 'LW_down', 'IWP', 'LWP']:
+for i in ['foehn_idx']:#['cl_cover', 'SW_down', 'LW_down', 'IWP', 'LWP']:
     correlation_maps(year_list = year_list, xvar = 'melt_amnt', yvar = i)
 
 correlation_maps(['1998-2017'], xvar = 'melt_amnt', yvar = 'LW_down')
@@ -314,26 +324,212 @@ correlation_maps(['1998-2017'], xvar = 'melt_amnt', yvar = 'foehn_freq')
 
 melt_sum = iris.load_cube(filepath + 'melt_sum.nc')
 
-def foehn_melt():
+surf = {}
+surf['lsm'] = iris.load_cube(filepath + 'new_mask.nc')
+surf['lsm'] = surf['lsm'][0,0,:,:]
+surf['orog'] = iris.load_cube(filepath + 'orog.nc')
+surf['orog'] = surf['orog'][0,0,:,:]
+surf['foehn_idx'] = iris.load_cube(filepath+ 'FI_for_corr_daymn.nc')
+surf['melt_amnt'] = iris.load_cube(filepath + 'melt_amnt_for_corr_daymn.nc')
+FI_melt_corr_mask = np.zeros((220,220))
+FI_melt_corr_mask[40:135, 90:155] = surf['foehn_idx'][0,40:135, 90:155].data
+mn_foehn = np.nanmean(surf['foehn_idx'].data, axis = 0 )
+DJF_FI = iris.load_cube(filepath + 'DJF_FI_for_corr_daymn.nc')
+surf['MAM_FI'] = iris.load_cube(filepath + 'MAM_FI_for_corr_daymn.nc')
+JJA_FI = iris.load_cube(filepath + 'JJA_FI_for_corr_daymn.nc')
+surf['SON_FI'] = iris.load_cube(filepath + 'SON_FI_for_corr_daymn.nc')
+surf['SON_melt'] = iris.load_cube(filepath + 'SON_melt_amnt_for_corr_daymn.nc')
+surf['MAM_melt'] = iris.load_cube(filepath + 'MAM_melt_amnt_for_corr_daymn.nc')
+correlation_maps(year_list = ['1998-2017'], xvar = 'SON_melt', yvar = 'SON_FI')
+correlation_maps(year_list = ['1998-2017'], xvar = 'MAM_melt', yvar = 'MAM_FI')
+
+r, r2, p, err, x_masked, y_masked = run_corr(surf['melt_amnt'].data, surf['foehn_idx'].data)
+
+
+def foehn_melt(melt_var, foehn_var):
     # Make ice shelf mask
-    Larsen_mask = np.zeros((220, 220))
-    lsm_subset = surf['lsm'].data[:150, 90:160]
-    Larsen_mask[:150, 90:160] = lsm_subset
-    Larsen_mask[surf['orog'][:,:].data > 100] = 0
+    time_len = melt_var.shape[0]-1
+    Larsen_mask = np.zeros((time_len, 220, 220))
+    Larsen_mask[time_len, 40:135, 90:155] = surf['lsm'].data[40:135, 90:155]
     Larsen_mask = np.logical_not(Larsen_mask)
-    x_masked = np.ma.masked_array(melt_sum.data, mask=np.broadcast_to(Larsen_mask, melt_sum.shape))
-    y_masked = np.ma.masked_array(f_cond.data, mask=np.broadcast_to(Larsen_mask, f_cond.shape))
-    unmasked_idx = np.where(Larsen_mask == 0)
+    x_masked = np.ma.masked_array(melt_var.data, mask=np.broadcast_to(Larsen_mask, melt_var.shape))
+    y_masked = np.ma.masked_array(foehn_var.data, mask=np.broadcast_to(Larsen_mask, foehn_var.shape))
+    unmasked_idx = np.where(x_masked.mask == 0)
     r = np.zeros((220,220))
     p = np.zeros((220,220))
     err = np.zeros((220,220))
-    for x, y in zip(unmasked_idx[0],unmasked_idx[1]):
+    for x, y in zip(unmasked_idx[1],unmasked_idx[2]):
         if x > 0. or y > 0.:
-            slope, intercept, r_value, p_value, std_err = stats.linregress(x_masked[x, y], y_masked[x, y])
+            slope, intercept, r_value, p_value, std_err = stats.linregress(x_masked[:, x, y], y_masked[:,  x, y])
             r[x,y] = r_value
             p[x,y] = p_value
             err[x,y] = std_err
     r2 = r**2
     return r, r2, p, err, x_masked, y_masked
 
-r, r2, p, err, x_masked, y_masked = foehn_melt()
+r, r2, p, err, x_masked, y_masked = foehn_melt(surf['melt_amnt'][4:58440], surf['foehn_idx'])
+np.savetxt(filepath + 'foehn_index_melt_correlation_r.csv', r, delimiter = ',')
+np.savetxt(filepath + 'foehn_index_melt_correlation_r2.csv', r2, delimiter = ',')
+np.savetxt(filepath + 'foehn_index_melt_correlation_p.csv', p, delimiter = ',')
+np.savetxt(filepath + 'foehn_index_melt_correlation_err.csv', err, delimiter = ',')
+
+
+
+
+real_lon, real_lat = rotate_data(surf['lsm'], 0,1)
+real_lon, real_lat = rotate_data(surf['orog'], 0,1)
+
+
+
+
+
+r, r2, p, err, x_masked, y_masked = foehn_melt(SON_melt.data, SON_FI.data)
+
+correlation_maps(['1998-2017'], )
+
+
+
+def plot_foehn_index(subplot):
+    Larsen_box = np.zeros((220, 220))
+    Larsen_box[40:135, 90:155] = 1.
+    if subplot == False or subplot == 'no':
+        fig = plt.figure(frameon=False, figsize=(8, 8))  # !!change figure dimensions when you have a larger model domain
+        fig.patch.set_visible(False)
+        ax = fig.add_subplot(111)#, projection=ccrs.PlateCarree())
+        plt.axis = 'off'
+        #cf_var = np.nanmean(surf['foehn_idx'].data, axis = 0)
+        ax.text(0., 1.1, zorder=6, transform=ax.transAxes, s='e', fontsize=36, fontweight='bold',color='dimgrey')
+        ax.text(0.4, 1.1, transform=ax.transAxes, s='ANN', fontsize=30, fontweight='bold', color='dimgrey')
+        cf_var = mn_foehn
+        plt.setp(ax.spines.values(), linewidth=0, color='dimgrey')
+        PlotLonMin = np.min(real_lon)
+        PlotLonMax = np.max(real_lon)
+        PlotLatMin = np.min(real_lat)
+        PlotLatMax = np.max(real_lat)
+        XTicks = np.linspace(PlotLonMin, PlotLonMax, 3)
+        XTickLabels = [None] * len(XTicks)
+        for i, XTick in enumerate(XTicks):
+            if XTick < 0:
+                XTickLabels[i] = '{:.0f}{:s}'.format(np.abs(XTick), '$^{\circ}$W')
+            else:
+                XTickLabels[i] = '{:.0f}{:s}'.format(np.abs(XTick), '$^{\circ}$E')#
+        plt.xticks(XTicks, XTickLabels)
+        ax.set_xlim(PlotLonMin, PlotLonMax)
+        ax.tick_params(which='both', pad=10, labelsize = 34, color = 'dimgrey')
+        YTicks = np.linspace(PlotLatMin, PlotLatMax, 3)
+        YTickLabels = [None] * len(YTicks)
+        for i, YTick in enumerate(YTicks):
+            if YTick < 0:
+                YTickLabels[i] = '{:.0f}{:s}'.format(np.abs(YTick), '$^{\circ}$S')
+            else:
+                YTickLabels[i] = '{:.0f}{:s}'.format(np.abs(YTick), '$^{\circ}$N')
+        plt.yticks(YTicks, YTickLabels)
+        ax.set_ylim(PlotLatMin, PlotLatMax)
+        ax.tick_params(which='both', axis='both', labelsize=34, labelcolor='dimgrey', pad=30,  size=0, tick1On=False, tick2On=False)
+        bwr_zero = shiftedColorMap(cmap=matplotlib.cm.bwr, min_val=-0.25, max_val=0.25, name='bwr_zero', var=cf_var.data, start=0.15, stop=0.85) #-6, 3
+        xlon, ylat = np.meshgrid(real_lon, real_lat)
+        c = ax.pcolormesh(xlon, ylat, np.ma.masked_where((Larsen_box == 0.), cf_var), cmap = 'Spectral_r', vmin = -.25, vmax = .25)
+        #ax.contour(xlon, ylat, shaded, levels= [1.], colors='dimgrey', linewidths = 4, latlon=True)
+        #ax.text(0., 1.1, zorder=6, transform=ax.transAxes, s='b', fontsize=32, fontweight='bold', color='dimgrey')
+        coast = ax.contour(xlon, ylat, surf['lsm'].data, levels=[0], colors='#222222', lw=2, latlon=True, zorder=2)
+        topog = ax.contour(xlon, ylat, surf['orog'].data, levels=[50], colors='#222222', linewidth=1.5, latlon=True, zorder=3)
+    elif subplot == True or subplot == 'yes':
+        fig, axs = plt.subplots(2,2,frameon=False, figsize=(15, 17))  # !!change figure dimensions when you have a larger model domain
+        fig.patch.set_visible(False)
+        axs = axs.flatten()
+        lab_dict = {0:('a','DJF'), 1: ( 'b', 'MAM'), 2: ('c', 'JJA'), 3:('d', 'SON')}
+        plot = 0
+        vars = [np.nanmean(DJF_FI.data, axis = 0),np.nanmean(MAM_FI.data, axis = 0),np.nanmean(JJA_FI.data, axis = 0), np.nanmean(SON_FI.data, axis=0)]
+        for ax in axs:
+            plt.sca(ax)
+            cf_var = vars[plot]
+            plt.axis = 'off'
+            plt.setp(ax.spines.values(), linewidth=0, color='dimgrey')
+            PlotLonMin = np.min(real_lon)
+            PlotLonMax = np.max(real_lon)
+            PlotLatMin = np.min(real_lat)
+            PlotLatMax = np.max(real_lat)
+            XTicks = np.linspace(PlotLonMin, PlotLonMax, 3)
+            XTickLabels = [None] * len(XTicks)
+            for i, XTick in enumerate(XTicks):
+                if XTick < 0:
+                    XTickLabels[i] = '{:.0f}{:s}'.format(np.abs(XTick), '$^{\circ}$W')
+                else:
+                    XTickLabels[i] = '{:.0f}{:s}'.format(np.abs(XTick), '$^{\circ}$E')#
+            plt.xticks(XTicks, XTickLabels)
+            ax.set_xlim(PlotLonMin, PlotLonMax)
+            ax.tick_params(which='both', pad=10, labelsize = 34, color = 'dimgrey')
+            YTicks = np.linspace(PlotLatMin, PlotLatMax, 3)
+            YTickLabels = [None] * len(YTicks)
+            for i, YTick in enumerate(YTicks):
+                if YTick < 0:
+                    YTickLabels[i] = '{:.0f}{:s}'.format(np.abs(YTick), '$^{\circ}$S')
+                else:
+                    YTickLabels[i] = '{:.0f}{:s}'.format(np.abs(YTick), '$^{\circ}$N')
+            plt.yticks(YTicks, YTickLabels)
+            ax.set_ylim(PlotLatMin, PlotLatMax)
+            ax.tick_params(which='both', axis='both', labelsize=34, labelcolor='dimgrey', pad=30, size=0, tick1On=False, tick2On=False)
+            bwr_zero = shiftedColorMap(cmap=matplotlib.cm.bwr, min_val=-.25, max_val=.25, name='bwr_zero', var=cf_var.data, start=0.15, stop=0.85) #-6, 3
+            xlon, ylat = np.meshgrid(real_lon, real_lat)
+            c = ax.pcolormesh(xlon, ylat, np.ma.masked_where((Larsen_box == 0.),cf_var), cmap = 'Spectral_r', vmin = -.25, vmax = .25)
+            #ax.contour(xlon, ylat, shaded, levels= [1.], colors='dimgrey', linewidths = 4, latlon=True)
+            ax.text(0., 1.1, zorder=6, transform=ax.transAxes, s=lab_dict[plot][0], fontsize=32, fontweight='bold', color='dimgrey')
+            ax.text(0.4,1.1, transform=ax.transAxes, s=lab_dict[plot][1], fontsize=28, fontweight='bold', color='dimgrey')
+            coast = ax.contour(xlon, ylat, surf['lsm'].data, levels=[0], colors='#222222', lw=2, latlon=True, zorder=2)
+            topog = ax.contour(xlon, ylat, surf['orog'].data, levels=[50], colors='#222222', linewidth=1.5, latlon=True, zorder=3)
+            plot = plot+1
+    CBarXTicks = [-.25, 0, .25]  # CLevs[np.arange(0,len(CLevs),int(np.ceil(len(CLevs)/5.)))]
+    CBAxes = fig.add_axes([0.35, 0.18, 0.4, 0.02])
+    CBar = plt.colorbar(c, cax=CBAxes, orientation='horizontal', ticks=CBarXTicks, extend = 'both')  #
+    CBar.set_label('Mean foehn index \n(dimensionless)', fontsize=34, labelpad=10, color='dimgrey')
+    CBar.solids.set_edgecolor("face")
+    CBar.outline.set_edgecolor('dimgrey')
+    CBar.ax.tick_params(which='both', axis='both', labelsize=34, labelcolor='dimgrey', pad=10, size=0, tick1On=False,
+                        tick2On=False)
+    CBar.outline.set_linewidth(2)
+    plt.subplots_adjust(left = 0.2, bottom = 0.3, wspace = 0.35, hspace = 0.35, right = 0.85)
+    if subplot == True or subplot == 'yes':
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Mean_foehn_index_seas.png', transparent=True)
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Mean_foehn_index_seas.eps', transparent=True)
+    else:
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Mean_foehn_index.png', transparent = True)
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Mean_foehn_index.eps', transparent = True)
+    plt.show()
+
+plot_foehn_index(subplot = False)
+
+def chop_foehn_index():
+    zero_idx = -1
+    djf_idx = 717
+    mam_idx = 1445
+    jja_idx = 2181
+    son_idx = 2917
+    DJF_FI = surf['foehn_idx'].data[zero_idx + 1:djf_idx]
+    MAM_FI = surf['foehn_idx'].data[djf_idx + 1:mam_idx]
+    JJA_FI = surf['foehn_idx'].data[mam_idx + 1:jja_idx]
+    SON_FI = surf['foehn_idx'].data[jja_idx + 1:son_idx]
+    for yr in range(20)[1:]:
+        DJF_FI = np.concatenate((DJF_FI, surf['foehn_idx'].data[zero_idx + 1:djf_idx]), axis = 0)
+        MAM_FI = np.concatenate((MAM_FI,surf['foehn_idx'].data[djf_idx + 1:mam_idx]), axis = 0)
+        JJA_FI = np.concatenate((JJA_FI,surf['foehn_idx'].data[mam_idx + 1:jja_idx]), axis = 0)
+        SON_FI = np.concatenate((SON_FI,surf['foehn_idx'].data[jja_idx + 1:son_idx]), axis = 0)
+        djf_idx = djf_idx + 2920
+        mam_idx = mam_idx + 2920
+        jja_idx = jja_idx + 2920
+        son_idx = son_idx + 2920
+        zero_idx = zero_idx + 2920
+    return DJF_FI, MAM_FI, JJA_FI, SON_FI
+
+#DJF_FI, MAM_FI, JJA_FI, SON_FI = chop_foehn_index()
+
+DJF_FI_cube = iris.cube.Cube(DJF_FI)
+MAM_FI_cube = iris.cube.Cube(MAM_FI)
+JJA_FI_cube = iris.cube.Cube(JJA_FI)
+SON_FI_cube = iris.cube.Cube(SON_FI)
+
+iris.save(DJF_FI_cube, filepath + 'DJF_foehn_index.nc')
+iris.save(MAM_FI_cube, filepath + 'MAM_foehn_index.nc')
+iris.save(JJA_FI_cube, filepath + 'JJA_foehn_index.nc')
+iris.save(SON_FI_cube, filepath + 'SON_foehn_index.nc')
+
+
