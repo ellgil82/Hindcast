@@ -573,58 +573,26 @@ def combo_foehn(meas_lat, meas_lon, prof_var, surf_var):
 
 def full_srs_foehn():
 	# Load surface variables
-Tair = iris.load_cube(filepath + '1998-2017_Tair_1p5m.nc', 'air_temperature')
-FF_10m = iris.load_cube(filepath + '1998-2017_FF_10m.nc', 'wind_speed')
-RH = iris.load_cube(filepath + '1998-2017_RH_1p5m.nc', 'relative_humidity')
-u_prof = iris.load_cube(filepath + '1998-2017_u_wind_full_profile.nc')
-#Tair.convert_units('celsius')
-#Tair = Tair[:,0,:,:] - 273.15
-FF_10m = FF_10m[:, 0, 1:, :]
-RH = RH[:,0,:,:]
-from iris.analysis.calculus import cube_delta
-dT = cube_delta(Tair, 'time')
-dRH = cube_delta(RH, 'time')
-dFF = cube_delta(FF_10m, 'time')
-dT_pct = iris.cube.Cube(dT[1::2].data/Tair[::2].data[:29217])
-dRH_pct = iris.cube.Cube(dRH[1:2:].data/Tair[::2].data[:29217])
-dFF_pct = iris.cube.Cube(dFF[1::2].data/FF_10m[::2].data[:29217])
-iris.save(dT_pct, filepath + 'dT_pct_foehn.nc')
-iris.save(dRH_pct, filepath + 'dRH_pct_foehn.nc')
-iris.save(dFF_pct, filepath + 'dFF_pct_foehn.nc')
-#dT_pct = iris.load_cube(filepath + 'dT_pct_foehn.nc')
-#dRH_pct = iris.load_cube(filepath + 'dRH_pct_foehn.nc')
-u_Z1 = np.mean(u_prof[::2, 27, 80:140, 4:42].data, axis = (1,2))[:29217] >= 2. # take mean over area, not just at one point
-u_Z1 = np.repeat(u_Z1[2:-3], 2)
-f = np.reshape(np.tile(u_Z1, (1, 1, 1)), ((u_Z1.shape[0]), 1, 1))
-u_Z1 = np.broadcast_to(f, (dT_pct.shape))
-foehn_cond_noFF = iris.analysis.subtract(dT_pct, dRH_pct)
-foehn_cond_noFF.data[u_Z1 == 0] = 0.
-#foehn_cond_noFF_cube = iris.cube.Cube(data = foehn_cond_noFF)
-iris.save(foehn_cond_noFF, filepath + 'foehn_index_noFF.nc')
-foehn_cond = iris.analysis.maths.add(foehn_cond_noFF,dFF_pct)
-#foehn_cond = FI.data.reshape(58434, 48400)
-#foehn_cond_norm = normalize(foehn_cond, axis = 0)
-#foehn_cond_norm = foehn_cond_norm.reshape(58434, 220,220)
-iris.save(foehn_cond, filepath + 'foehn_index.nc')
+	Tair = iris.load_cube(filepath + '1998-2017_Tair_1p5m.nc', 'air_temperature')
+	# FF_10m = iris.load_cube(filepath + '1998-2017_FF_10m.nc', 'wind_speed')
+	RH = iris.load_cube(filepath + '1998-2017_RH_1p5m.nc', 'relative_humidity')
+	u_prof = iris.load_cube(filepath + '1998-2017_u_wind_full_profile.nc')
+	FF_10m = FF_10m[:, 0, 1:, :]
+	RH = RH[:, 0, :, :]
+	dT = np.gradient(Tair.data, 2, axis=0)  # find gradient between timesteps with t=2 spacing (i.e. 6 hours)
+	dRH = np.gradient(RH.data, 2, axis=0)
+	u_Z1 = np.mean(u_prof[:, 27, 80:140, 4:42].data, axis=(1, 2))[
+		   :29222] >= 2.  # take mean over area, not just at one point
+	u_Z1 = np.repeat(u_Z1, 2)  # [2:-3]
+	f = np.reshape(np.tile(u_Z1, (1, 1, 1)), ((u_Z1.shape[0]), 1, 1))
+	u_Z1 = np.broadcast_to(f, (dT.shape))
+	FI_noFF = dT - dRH
+	FI_noFF[u_Z1 == 0] = np.nan
+	foehn_cond_noFF_cube = iris.cube.Cube(data = FI_noFF)
+	iris.save(foehn_cond_noFF, filepath + 'FI_noFF_calc_grad.nc')
 	return foehn_cond, foehn_cond_noFF, dRH, dT, dFF, u_Z1
 
-foehn_cond, foehn_cond_noFF, dRH, dT, dFF, u_Z1 = full_srs_foehn()
-
-
-Tair = iris.load_cube(filepath + '1998-2017_Tair_1p5m.nc', 'air_temperature')
-#FF_10m = iris.load_cube(filepath + '1998-2017_FF_10m.nc', 'wind_speed')
-RH = iris.load_cube(filepath + '1998-2017_RH_1p5m.nc', 'relative_humidity')
-u_prof = iris.load_cube(filepath + '1998-2017_u_wind_full_profile.nc')
-FF_10m = FF_10m[:, 0, 1:, :]
-RH = RH[:,0,:,:]
-dT = np.gradient(Tair.data, 2, axis = 0) # find gradient between timesteps with t=2 spacing (i.e. 6 hours)
-dRH = np.gradient(RH.data, 2, axis = 0)
-u_Z1 = np.mean(u_prof[:, 27, 80:140, 4:42].data, axis = (1,2))[:29222] >= 2. # take mean over area, not just at one point
-u_Z1 = np.repeat(u_Z1, 2)#[2:-3]
-f = np.reshape(np.tile(u_Z1, (1, 1, 1)), ((u_Z1.shape[0]), 1, 1))
-u_Z1 = np.broadcast_to(f, (dT.shape))
-FI_noFF = dT-dRH
-FI_noFF[u_Z1 == 0] = np.nan
+#foehn_cond, foehn_cond_noFF, dRH, dT, dFF, u_Z1 = full_srs_foehn()
 
 surf_vars, prof_vars = load_vars('2012')
 
@@ -810,7 +778,9 @@ def spatial_foehn(calc):
 	fig, ax = plt.subplots(figsize=(8, 8))
 	CbAx = fig.add_axes([0.25, 0.18, 0.5, 0.02])
 	ax.axis('off')
-	c = ax.pcolormesh(foehn_pct.data, cmap = 'OrRd', vmin = 3, vmax = 12)
+	Larsen_mask = np.zeros((220,220))
+	Larsen_mask[40:135, 90:155] = 1.
+	c = ax.pcolormesh(np.ma.masked_where((Larsen_mask == 0.), foehn_pct.data), cmap = 'OrRd', vmin = 3, vmax = 12)
 	#c = ax.pcolormesh(np.ma.masked_where((prof_var['orog'].data >= 100.), foehn_pct.data), cmap = 'OrRd', vmin = 3, vmax = 12)  #divide by 20 to get mean annual number of foehn/20.
 	cb = plt.colorbar(c, cax = CbAx, orientation = 'horizontal', extend = 'both', ticks = [0,5,10, 15])#cb.solids.set_edgecolor("face")
 	cb.outline.set_edgecolor('dimgrey')

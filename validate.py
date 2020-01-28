@@ -1046,10 +1046,10 @@ def SEB_plot():
                       'Hsen': 'Sensible \nheat (W m$^{-2}$)', 'Hlat': 'Latent \nheat (W m$^{-2}$)'}
             ax2 = ax[plot].twiny()
             obs = ax[plot].plot(AWS_var['datetime'], AWS_var[j], color='k', linewidth=2.5, label="Cabinet Inlet AWS", zorder = 3)
-            ax2.plot(SEB_1p5['Time_srs'], SEB_1p5[k], linewidth=2.5, color=col_dict[r], label='*%(r)s UM output for Cabinet Inlet' % locals(), zorder = 5)
+            ax2.plot(loc_dict[location][0]['Time_srs'], loc_dict[location][0][k], linewidth=2.5, color=col_dict[r], label='*%(r)s UM output for Cabinet Inlet' % locals(), zorder = 5)
             ax2.plot(SEB_4p0['Time_srs'], SEB_4p0[k], linewidth=2.5, color='#1f78b4', label='*%(r)s UM output for Cabinet Inlet' % locals(), zorder=4)
             ax2.axis('off')
-            ax2.set_xlim(SEB_1p5['Time_srs'][1], SEB_1p5['Time_srs'][-1])
+            ax2.set_xlim(loc_dict[location][0]['Time_srs'][1], loc_dict[location][0]['Time_srs'][-1])
             ax2.tick_params(axis='both', tick1On = False, tick2On = False)
             ax2.set_ylim([-200,400])
             ax[plot].set_ylabel(titles[j], rotation=0, fontsize=24, color='dimgrey', labelpad=80)
@@ -1075,10 +1075,10 @@ def SEB_plot():
         [l.set_visible(False) for (w, l) in enumerate(axs.yaxis.get_ticklabels()) if w % 2 != 0]
         [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
     ax[0].tick_params(axis='both', which='both', labelsize=24, tick1On = False, tick2On = False)
-    #ax[3].fill_between(SEB_1p5['Time_srs'], SEB_1p5['percentiles'][2], SEB_1p5['percentiles'][3], facecolor=col_dict[r], alpha=0.4, zorder=2)
-    #ax[2].fill_between(SEB_1p5['Time_srs'], SEB_1p5['percentiles'][0], SEB_1p5['percentiles'][1], facecolor=col_dict[r], alpha=0.4, zorder=2)
-    #ax[1].fill_between(SEB_1p5['Time_srs'], SEB_1p5['percentiles'][8], SEB_1p5['percentiles'][9], facecolor=col_dict[r], alpha=0.4, zorder=2)
-    #ax[0].fill_between(SEB_1p5['Time_srs'], SEB_1p5['percentiles'][4], SEB_1p5['percentiles'][5], facecolor=col_dict[r], alpha=0.4, zorder=2)
+    #ax[3].fill_between(loc_dict[location][0]['Time_srs'], loc_dict[location][0]['percentiles'][2], loc_dict[location][0]['percentiles'][3], facecolor=col_dict[r], alpha=0.4, zorder=2)
+    #ax[2].fill_between(loc_dict[location][0]['Time_srs'], loc_dict[location][0]['percentiles'][0], loc_dict[location][0]['percentiles'][1], facecolor=col_dict[r], alpha=0.4, zorder=2)
+    #ax[1].fill_between(loc_dict[location][0]['Time_srs'], loc_dict[location][0]['percentiles'][8], loc_dict[location][0]['percentiles'][9], facecolor=col_dict[r], alpha=0.4, zorder=2)
+    #ax[0].fill_between(loc_dict[location][0]['Time_srs'], loc_dict[location][0]['percentiles'][4], loc_dict[location][0]['percentiles'][5], facecolor=col_dict[r], alpha=0.4, zorder=2)
     #Legend
     lns = [Line2D([0],[0], color='k', linewidth = 2.5)]
     labs = ['Observations from Cabinet Inlet']
@@ -1103,52 +1103,89 @@ def SEB_plot():
 #for station, AWS_var in zip(['AWS14', 'AWS15', 'AWS17', 'AWS18'], [ANN_14, ANN_15, ANN_17, ANN_18]):
 #    AWS_var.to_csv(filepath+station+'_daymn.csv')
 
-#AWS14_daymn = pd.read_csv('AWS14_daymn.csv')
-#AWS15_daymn = pd.read_csv('AWS15_daymn.csv')
-#AWS17_daymn = pd.read_csv('AWS17_daymn.csv')
-#AWS18_daymn = pd.read_csv('AWS18_daymn.csv')
-#
-#AWS14_df = pd.DataFrame()
-#AWS15_df = pd.DataFrame()
-#AWS17_df = pd.DataFrame()
-#AWS18_df = pd.DataFrame()
-#
-#for j in ['Tair', 'Ts', 'FF_10m',  'WD', 'MSLP', 'sfc_P', 'RH', 'SWdown', 'SWnet', 'LWdown', 'LWnet', 'HS', 'HL', 'Etot', 'Emelt']:
-#    AWS14_df[j] = np.mean(full_srs[j][:,lat_index14 - 1:lat_index14 + 1, lon_index14 - 1:lon_index14 + 1].data, axis=(1, 2))
-#    AWS15_df[j] = np.mean(full_srs[j][:,lat_index15 - 1:lat_index15 + 1, lon_index15 - 1:lon_index15 + 1].data, axis=(1, 2))
-#    AWS17_df[j] = np.mean(full_srs[j][:,lat_index17 - 1:lat_index17 + 1, lon_index17 - 1:lon_index17 + 1].data, axis=(1, 2))
-#    AWS18_df[j] = np.mean(full_srs[j][:,lat_index18 - 1:lat_index18 + 1, lon_index18 - 1:lon_index18 + 1].data, axis=(1, 2))
-#
-#
-#for k in [AWS14_df, AWS15_df, AWS17_df, AWS18_df]:
-#    k.index = pd.date_range(datetime(1997,12,31,23,59,59),datetime(2017,12,31,23,59,59), freq ='D')
-#
-#inlet_df = pd.concat([AWS18_df, AWS17_df])
-#inlet_df = inlet_df.groupby(inlet_df.index).mean()
-#iceshelf_df = pd.concat([AWS14_df, AWS15_df])
-#iceshelf_df = iceshelf_df.groupby(iceshelf_df.index).mean()
-##for g in [inlet_df, iceshelf_df]:
-#    g['HS'] = f['HS'] * -1.
-#    g['HL'] = f['HL'] * -1.
-#iceshelf_df.to_csv(filepath + 'Modelled_ice_shelf_daily_mean_series.csv')
-#inlet_df.to_csv(filepath + 'Modelled_inlet_daily_mean_series.csv')
+def calc_monthly_data():
+    # Load observed series at each station and turn into DataFrame
+    AWS14_daymn = pd.read_csv('AWS14_daymn.csv')
+    AWS15_daymn = pd.read_csv('AWS15_daymn.csv')
+    AWS17_daymn = pd.read_csv('AWS17_daymn.csv')
+    AWS18_daymn = pd.read_csv('AWS18_daymn.csv')
+    #for i in [AWS14_daymn, AWS15_daymn, AWS17_daymn, AWS18_daymn]:
+    #    i.index = i['Date']
+    #AWS14_df = pd.DataFrame()
+    #AWS15_df = pd.DataFrame()
+    #AWS17_df = pd.DataFrame()
+    #AWS18_df = pd.DataFrame()
+    # Create dataframe
+    #for j in ['Tair', 'Ts', 'FF_10m',  'u', 'v',  'sfc_P', 'RH', 'SWdown', 'SWup', 'SWnet', 'LWdown', 'LWup', 'LWnet', 'HS', 'HL', 'Etot', 'Emelt']:
+    #    try:
+    #        AWS14_df[j] = np.mean(full_srs[j][:,lat_index14 - 1:lat_index14 + 1, lon_index14 - 1:lon_index14 + 1].data, axis=(1, 2))
+    #        AWS15_df[j] = np.mean(full_srs[j][:,lat_index15 - 1:lat_index15 + 1, lon_index15 - 1:lon_index15 + 1].data, axis=(1, 2))
+    #        AWS17_df[j] = np.mean(full_srs[j][:,lat_index17 - 1:lat_index17 + 1, lon_index17 - 1:lon_index17 + 1].data, axis=(1, 2))
+    #        AWS18_df[j] = np.mean(full_srs[j][:,lat_index18 - 1:lat_index18 + 1, lon_index18 - 1:lon_index18 + 1].data, axis=(1, 2))
+    #    except AttributeError:
+    #        AWS14_df[j] = np.mean(full_srs[j][:, lat_index14 - 1:lat_index14 + 1, lon_index14 - 1:lon_index14 + 1], axis=(1, 2))
+    #        AWS15_df[j] = np.mean(full_srs[j][:, lat_index15 - 1:lat_index15 + 1, lon_index15 - 1:lon_index15 + 1], axis=(1, 2))
+    #        AWS17_df[j] = np.mean(full_srs[j][:, lat_index17 - 1:lat_index17 + 1, lon_index17 - 1:lon_index17 + 1], axis=(1, 2))
+    #        AWS18_df[j] = np.mean(full_srs[j][:, lat_index18 - 1:lat_index18 + 1, lon_index18 - 1:lon_index18 + 1], axis=(1, 2))
+    # Reset index
+    #for k in [AWS14_df, AWS15_df, AWS17_df, AWS18_df]:
+    #    k.index = pd.date_range(datetime(1997,12,31,23,59,59),datetime(2017,12,31,23,59,59), freq ='D')
+    #    k.resample('M').mean()
+    #inlet_df = pd.concat([AWS18_df, AWS17_df])
+    #inlet_df = inlet_df.groupby(inlet_df.index).mean()
+    #iceshelf_df = pd.concat([AWS14_df, AWS15_df])
+    #iceshelf_df = iceshelf_df.groupby(iceshelf_df.index).mean()
+    #for g in [inlet_df, iceshelf_df]:
+    #    g['HS'] = f['HS'] * -1.
+    #    g['HL'] = f['HL'] * -1.
+    #iceshelf_df.to_csv(filepath + 'Modelled_ice_shelf_daily_mean_series.csv')
+    #inlet_df.to_csv(filepath + 'Modelled_inlet_daily_mean_series.csv')
+    inlet_df = pd.read_csv(filepath + 'Modelled_inlet_daily_mean_series.csv', index_col = 0)
+    iceshelf_df = pd.read_csv(filepath + 'Modelled_ice_shelf_daily_mean_series.csv', index_col = 0)
+    for df in [inlet_df, iceshelf_df]:
+        df['Datetime'] = pd.date_range(datetime(1997,12,31,0,0,0),datetime(2017,12,31,23,59,59), freq = 'D')
+        df.index  = df['Datetime']
+    iceshelf_monmn = iceshelf_df.resample('M').mean()
+    iceshelf_monmax = iceshelf_df.resample('M').quantile(0.95)
+    iceshelf_monmin = iceshelf_df.resample('M').quantile(0.05)
+    iceshelf_monmn.to_csv(filepath + 'Modelled_ice_shelf_monthly_mean_series.csv')
+    iceshelf_monmax.to_csv(filepath + 'Modelled_ice_shelf_monthly_95_series.csv')
+    iceshelf_monmin.to_csv(filepath + 'Modelled_ice_shelf_monthly_5_series.csv')
+    inlet_monmn = inlet_df.resample('M').mean()
+    inlet_monmax = inlet_df.resample('M').quantile(0.95)
+    inlet_monmin = inlet_df.resample('M').quantile(0.05)
+    inlet_monmn.to_csv(filepath + 'Modelled_inlet_monthly_mean_series.csv')
+    inlet_monmax.to_csv(filepath + 'Modelled_inlet_monthly_95_series.csv')
+    inlet_monmin.to_csv(filepath + 'Modelled_inlet_monthly_5_series.csv')
+    # Repeat for observations
+    iceshelf_obs = pd.concat([ANN_14, ANN_15])
+    inlet_obs = pd.concat([ANN_17, ANN_18])
+    iceshelf_monmn_obs = iceshelf_obs.resample('M').mean()
+    iceshelf_monmin_obs = iceshelf_obs.resample('M').quantile(0.05)
+    iceshelf_monmax_obs = iceshelf_obs.resample('M').quantile(0.95)
+    inlet_monmn_obs = inlet_obs.resample('M').mean()
+    inlet_monmin_obs = inlet_obs.resample('M').quantile(0.05)
+    inlet_monmax_obs = inlet_obs.resample('M').quantile(0.95)
+    inlet_monmn_obs.to_csv(filepath +  'Observed_inlet_monthly_mean_series.csv')
+    inlet_monmax_obs.to_csv(filepath + 'Observed_inlet_monthly_95_series.csv')
+    inlet_monmin_obs.to_csv(filepath + 'Observed_inlet_monthly_5_series.csv')
+    iceshelf_monmn_obs.to_csv(filepath +  'Observed_ice_shelf_monthly_mean_series.csv')
+    iceshelf_monmax_obs.to_csv(filepath + 'Observed_ice_shelf_monthly_95_series.csv')
+    iceshelf_monmin_obs.to_csv(filepath + 'Observed_ice_shelf_monthly_5_series.csv')
+    table_obs = pd.DataFrame(index = ['Inlet Mean', 'Inlet 5th', 'Inlet 95th','Ice shelf Mean', 'Ice shelf 5th', 'Ice shelf 95th' ])
+    for j in ['Tair_2m',  'Tsobs',  'FF_10m',  'u', 'v', 'pres', 'RH', 'SWin_corr', 'SWout', 'SWnet_corr', 'LWin', 'LWout_corr', 'LWnet_corr', 'Hsen', 'Hlat', 'E', 'melt_energy']:
+        table_obs[j] = pd.Series([inlet_monmn_obs.mean()[j],inlet_monmn_obs.quantile(0.05)[j], inlet_monmn_obs.quantile(0.95)[j], iceshelf_monmn_obs.mean()[j], iceshelf_monmn_obs.quantile(0.05)[j],
+                                  iceshelf_monmn_obs.quantile(0.95)[j]], index = ['Inlet Mean', 'Inlet 5th', 'Inlet 95th','Ice shelf Mean', 'Ice shelf 5th', 'Ice shelf 95th' ])
+    table_obs = table_obs.transpose()
+    table_obs.to_csv(filepath + 'Observed_monthly_stats.csv')
+    table_mod = pd.DataFrame(index = ['Inlet Mean', 'Inlet 5th', 'Inlet 95th','Ice shelf Mean', 'Ice shelf 5th', 'Ice shelf 95th' ])
+    for j in ['Tair',  'Ts',  'FF_10m', 'u', 'v', 'sfc_P', 'RH', 'SWdown','SWup', 'SWnet', 'LWdown', 'LWup', 'LWnet', 'HS', 'HL', 'Etot', 'Emelt']:
+        table_mod[j] = pd.Series([inlet_monmn.mean()[j],inlet_monmn.quantile(0.05)[j], inlet_monmn.quantile(0.95)[j], iceshelf_monmn.mean()[j],
+                                  iceshelf_monmn.quantile(0.05)[j], iceshelf_monmn.quantile(0.95)[j]], index = ['Inlet Mean', 'Inlet 5th', 'Inlet 95th','Ice shelf Mean', 'Ice shelf 5th', 'Ice shelf 95th' ])
+    table_mod = table_mod.transpose()
+    table_mod.to_csv(filepath + 'Modelled_monthly_stats.csv')
 
-
-inlet_df = pd.read_csv(filepath + 'Modelled_inlet_daily_mean_series.csv', index_col = 0)
-iceshelf_df = pd.read_csv(filepath + 'Modelled_ice_shelf_daily_mean_series.csv', index_col = 0)
-
-for df in [inlet_df, iceshelf_df]:
-    df['Datetime'] = pd.date_range(datetime(1997,12,31,0,0,0),datetime(2017,12,31,23,59,59), freq = 'D')
-    df.index  = df['Datetime']
-
-iceshelf_monmn = iceshelf_df.resample('M').mean()
-iceshelf_monmax = iceshelf_df.resample('M').max()
-iceshelf_monmin = iceshelf_df.resample('M').min()
-iceshelf_monmn.to_csv(filepath + 'Modelled_ice_shelf_monthly_mean_series.csv')
-inlet_monmn = inlet_df.resample('M').mean()
-inlet_monmax = inlet_df.resample('M').max()
-inlet_monmin = inlet_df.resample('M').min()
-inlet_monmn.to_csv(filepath + 'Modelled_inlet_monthly_mean_series.csv')
+calc_monthly_data()
 
 def surf_plot(inlet_df, iceshelf_df, minmax, which_vars):
     fig, ax = plt.subplots(2,2,sharex= True, figsize=(22, 12))
@@ -1157,6 +1194,7 @@ def surf_plot(inlet_df, iceshelf_df, minmax, which_vars):
     days = mdates.MonthLocator(interval=1)
     dayfmt = mdates.DateFormatter('%m')
     plot = 0
+    translation = {'SWdown': 'SWin_corr', 'LWdown': 'LWin', 'HS':'Hsen', 'HL': 'Hlat', 'RH': 'RH', 'FF_10m':'FF_10m', 'Tair': 'Tair_2m', 'Ts': 'Tsobs'}
     # Plot each variable in turn
     if which_vars == 'surf_met':
         var_list = ['RH', 'FF_10m', 'Tair', 'Ts']
@@ -1173,16 +1211,22 @@ def surf_plot(inlet_df, iceshelf_df, minmax, which_vars):
                   'HS': 'Sensible heat \nflux (W m$^{-2}$)',
                   'HL': 'Latent heat \nflux (W m$^{-2}$)'}
     for j in var_list:
-        inlet = ax[plot].plot(inlet_df.index, inlet_df[j], color='#cc4c02', linewidth=2.5, label = 'Inlet stations')
-        iceshelf = ax[plot].plot(iceshelf_df.index, iceshelf_df[j], color='#045a8d', linewidth=2.5, label = 'Ice shelf stations')
+        inlet = ax[plot].plot(inlet_df.index, inlet_df[j], color='#cc4c02', alpha = 0.75,  label = 'Inlet stations')
+        iceshelf = ax[plot].plot(iceshelf_df.index, iceshelf_df[j], color='#045a8d', alpha = 0.75, linewidth=2.5, label = 'Ice shelf stations')
+        #ax2 = plt.twiny(ax[plot])
+        inlet_obs = ax[plot].plot(inlet_monmn_obs.index, inlet_monmn_obs[translation[j]], color='#803001', marker = 'x', linewidth=2.5, label = 'Inlet stations, obs')
+        iceshelf_obs = ax[plot].plot(iceshelf_monmn_obs.index, iceshelf_monmn_obs[translation[j]], color='#022b43', marker = 'x', linewidth=2.5, label = 'Ice shelf stations, obs')
+        ax[plot].set_xlim(inlet_df.index[0], inlet_df.index[-1])
+        ax[plot].set_ylim(limits[j])
+        #ax2.axis('off')
         ax[plot].set_xlim(inlet_df.index[0], inlet_df.index[-1])
         ax[plot].set_ylim(limits[j])#[floor(np.floor(np.min(AWS_var[j])),5),ceil(np.ceil( np.max(AWS_var[j])),5)])
         ax[plot].set_ylabel(titles[j], rotation=0, fontsize=24, color = 'dimgrey', labelpad = 80)
         ax[plot].tick_params(axis='both', which='both', labelsize=24, tick1On = False, tick2On = False)
         lab = ax[plot].text(0.08, 0.85, zorder = 100, transform = ax[plot].transAxes, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
         if minmax == 'yes' or minmax == True:
-            ax[plot].fill_between(inlet_df.index, inlet_monmin[j], inlet_monmax[j], color='#cc4c02', alpha = 0.4)
-            ax[plot].fill_between(iceshelf_df.index, iceshelf_monmin[j], iceshelf_monmax[j], color='#045a8d', alpha=0.4)
+            ax[plot].fill_between(inlet_df.index, inlet_monmin[j], inlet_monmax[j], color='#cc4c02', alpha = 0.3)
+            ax[plot].fill_between(iceshelf_df.index, iceshelf_monmin[j], iceshelf_monmax[j], color='#045a8d', alpha=0.3)
         plot = plot + 1
     for axs in [ax[0], ax[2]]:
         axs.yaxis.set_label_coords(-0.3, 0.5)
@@ -1202,30 +1246,30 @@ def surf_plot(inlet_df, iceshelf_df, minmax, which_vars):
         [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
         #plt.xticks([inlet_df.index[0], vars_yr[k].coord('time').points[-1]])
     # Legend
-    lgd = ax[1].legend(bbox_to_anchor=(0.55, 1.1), loc=2, fontsize=20)
+    lgd = ax[1].legend(bbox_to_anchor=(0.3, 1.1), loc=2, fontsize=20)
     frame = lgd.get_frame()
     frame.set_facecolor('white')
     for ln in lgd.get_texts():
         plt.setp(ln, color='dimgrey')
     lgd.get_frame().set_linewidth(0.0)
-    plt.subplots_adjust(wspace = 0.05, hspace = 0.05, top = 0.95, right = 0.85, left = 0.16, bottom = 0.08)
+    plt.subplots_adjust(wspace = 0.05, hspace = 0.05, top = 0.95, right = 0.84, left = 0.17, bottom = 0.08)
     if minmax == True:
-        plt.savefig(filepath + which_vars + '_inlet_v_ice_shelf_monmn.png')
-        plt.savefig(filepath + which_vars + '_inlet_v_ice_shelf_monmn.eps')
-        plt.savefig(filepath + which_vars + '_inlet_v_ice_shelf_monmn.pdf')
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + which_vars + '_inlet_v_ice_shelf_monmn.png')
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + which_vars + '_inlet_v_ice_shelf_monmn.eps')
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + which_vars + '_inlet_v_ice_shelf_monmn.pdf')
     else:
-        plt.savefig(filepath + which_vars + '_inlet_v_ice_shelf_no_range_monmn.png')
-        plt.savefig(filepath + which_vars + '_inlet_v_ice_shelf_no_range_monmn.eps')
-        plt.savefig(filepath + which_vars + '_inlet_v_ice_shelf_no_range_monmn.pdf')
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + which_vars + '_inlet_v_ice_shelf_no_range_monmn.png')
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + which_vars + '_inlet_v_ice_shelf_no_range_monmn.eps')
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + which_vars + '_inlet_v_ice_shelf_no_range_monmn.pdf')
     plt.show()
 
-surf_plot(inlet_monmn, iceshelf_monmn, minmax = True, which_vars = 'surf_met')
-surf_plot(inlet_monmn, iceshelf_monmn, minmax = True, which_vars = 'SEB')
+#surf_plot(inlet_monmn, iceshelf_monmn, minmax = True, which_vars = 'surf_met')
+#surf_plot(inlet_monmn, iceshelf_monmn, minmax = True, which_vars = 'SEB')
 
 
-fig, ax = plt.subplots(figsize=(18, 8))
-inlet = ax.plot(inlet_df.index, inlet_df[j], color='#cc4c02', linewidth=2.5, label = 'Inlet stations')
-iceshelf = ax.plot(iceshelf_df.index, iceshelf_dfmelt, color='#045a8d', linewidth=2.5, label = 'Ice shelf stations')
+#fig, ax = plt.subplots(figsize=(18, 8))
+#inlet = ax.plot(inlet_df.index, inlet_df[j], color='#cc4c02', linewidth=2.5, label = 'Inlet stations')
+#ceshelf = ax.plot(iceshelf_df.index, iceshelf_df.melt, color='#045a8d', linewidth=2.5, label = 'Ice shelf stations')
 
 def melt_plot(AWS_var, vars_yr, station):
     fig, ax = plt.subplots(figsize = (18,8))
@@ -1265,7 +1309,7 @@ def melt_plot(AWS_var, vars_yr, station):
     plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Melt_time_series_obs_v_mod_+ ' + station + '.eps', transparent=True)
     plt.show()
 
-melt_plot(AWS_var = ANN_18, vars_yr = srs_18_trimmed, station = 'AWS18')
+#melt_plot(AWS_var = ANN_18, vars_yr = srs_18_trimmed, station = 'AWS18')
 
 def melt_map(vars_yr, AWS14_var, AWS17_var, calc, which):
     fig, axs  = plt.subplots(1,1, figsize = (10, 10))#, figsize=(20, 12), frameon=False)
@@ -1372,3 +1416,145 @@ def melt_map(vars_yr, AWS14_var, AWS17_var, calc, which):
 #melt_map(vars_yr = vars_2011, AWS14_var = AWS14_SEB, AWS17_var = AWS17_SEB, calc = True, which = 'duration')
 #melt_map(vars_yr = vars_2011, AWS14_var = AWS14_SEB, AWS17_var = AWS17_SEB, calc = False, which = 'duration')
 #melt_map(vars_yr = vars_2014, AWS14_var = AWS14_SEB, AWS17_var = AWS17_SEB, calc = False, which = 'duration')
+
+
+def validation_series(which_vars, location, minmax):
+    fig, ax = plt.subplots(2, 2, sharex=True, figsize=(22, 12))
+    ax = ax.flatten()
+    lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h', 8: 'i', 9: 'j', 10: 'k', 11: 'l'}
+    days = mdates.MonthLocator(interval=1)
+    dayfmt = mdates.DateFormatter('%m')
+    loc_dict = {'AWS14': (srs_14_trimmed, ANN_14), 'AWS15': (srs_15_trimmed, ANN_15), 'AWS17': (srs_17_trimmed, ANN_17), 'AWS18': (srs_18_trimmed, ANN_18)}
+    plot = 0
+    # Plot each variable in turn
+    if which_vars == 'surf_met':
+        var_list = ['RH', 'FF_10m', 'Tair', 'Ts']
+        obs_name = {'RH': 'RH', 'FF_10m': 'FF_10m', 'Tair': 'Tair_2m', 'Ts': 'Tsobs'}
+        limits = {'RH': (40, 100), 'FF_10m': (0, 25), 'Tair': (-40, 5), 'Ts': (-40, 5)}
+        titles = {'RH': 'Relative \nhumidity (%)',
+                  'FF_10m': 'Wind speed \n(m s$^{-1}$)',
+                  'Tair': '2 m air \ntemperature ($^{\circ}$C)',
+                  'Ts': 'Surface \ntemperature ($^{\circ}$C)'}
+    elif which_vars == 'SEB':
+        var_list = ['SWdown', 'LWdown', 'HS', 'HL']
+        obs_name = {'SWdown':'SWin_corr', 'LWdown': 'LWin', 'HS': 'Hsen', 'HL': 'Hlat'}
+        limits = {'SWdown': (0, 600), 'LWdown': (100, 350), 'HS': (-50, 150), 'HL': (-100, 50)}
+        titles = {'SWdown': 'Downwelling \nShortwave \nRadiation \n(W m$^{-2}$)',
+                  'LWdown': 'Downwelling \nLongwave \nRadiation \n(W m$^{-2}$)',
+                  'HS': 'Sensible heat \nflux (W m$^{-2}$)',
+                  'HL': 'Latent heat \nflux (W m$^{-2}$)'}
+    for j in var_list:
+        mod = ax[plot].plot(loc_dict[location][1].index[:-1], loc_dict[location][0][j][:, lat_dict[location], lon_dict[location]].data, color='#cc4c02', linewidth=2.5, label='Model')
+        obs = ax[plot].plot(loc_dict[location][1].index[:-1], loc_dict[location][1][obs_name[j]][:-1], color='k', linewidth=2.5, label='Observations')
+        plt.sca(ax[plot])
+        plt.xlim(loc_dict[location][1].index[0], loc_dict[location][1].index[-1])
+        plt.ylim(limits[j])  # [floor(np.floor(np.min(AWS_var[j])),5),ceil(np.ceil( np.max(AWS_var[j])),5)])
+        ax[plot].set_ylabel(titles[j], rotation=0, fontsize=24, color='dimgrey', labelpad=80)
+        ax[plot].tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False)
+        lab = ax[plot].text(0.08, 0.85, zorder=100, transform=ax[plot].transAxes, s=lab_dict[plot], fontsize=32,
+                            fontweight='bold', color='dimgrey')
+        if minmax == 'yes' or minmax == True:
+            ax[plot].fill_between(loc_dict[location][0]['Timesrs'], inlet_monmin[j], inlet_monmax[j], color='#cc4c02', alpha=0.4)
+        plot = plot + 1
+    for axs in [ax[0], ax[2]]:
+        axs.yaxis.set_label_coords(-0.3, 0.5)
+        axs.spines['right'].set_visible(False)
+    for axs in [ax[1], ax[3]]:
+        axs.yaxis.set_label_coords(1.27, 0.5)
+        axs.yaxis.set_ticks_position('right')
+        axs.tick_params(axis='y', tick1On=False)
+        axs.spines['left'].set_visible(False)
+    for axs in [ax[0], ax[1]]:
+        [l.set_visible(False) for (w, l) in enumerate(axs.yaxis.get_ticklabels()) if w % 2 != 0]
+    for axs in ax:
+        axs.spines['top'].set_visible(False)
+        plt.setp(axs.spines.values(), linewidth=2, color='dimgrey', )
+        #axs.set_xlim(inlet_df.index[0], inlet_df.index.values[-1])
+        axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey',
+                        pad=10)
+        [l.set_visible(False) for (w, l) in enumerate(axs.xaxis.get_ticklabels()) if w % 2 != 0]
+        # plt.xticks([inlet_df.index[0], vars_yr[k].coord('time').points[-1]])
+    # Legend
+    lgd = ax[1].legend(bbox_to_anchor=(0.55, 1.1), loc=2, fontsize=20)
+    frame = lgd.get_frame()
+    frame.set_facecolor('white')
+    for ln in lgd.get_texts():
+        plt.setp(ln, color='dimgrey')
+    lgd.get_frame().set_linewidth(0.0)
+    plt.subplots_adjust(wspace=0.05, hspace=0.05, top=0.95, right=0.84, left=0.17, bottom=0.08)
+    if minmax == True:
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + which_vars + '_' + location + '_validation_time_srs_daymn.png')
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + which_vars + '_' + location + '_validation_time_srs_daymn.eps')
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + which_vars + '_' + location + '_validation_time_srs_daymn.pdf')
+    else:                                                                      ''
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + which_vars + '_' + location + '_validation_time_srs_no_range_daymn.png')
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + which_vars + '_' + location + '_validation_time_srs_no_range_daymn.eps')
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + which_vars + '_' + location + '_validation_time_srs_no_range_daymn.pdf')
+    #plt.show()
+
+
+def correl_plot(location):
+    loc_dict = {'AWS14': (srs_14_trimmed, ANN_14), 'AWS15': (srs_15_trimmed, ANN_15), 'AWS17': (srs_17_trimmed, ANN_17),
+                'AWS18': (srs_18_trimmed, ANN_18)}
+    R_net = loc_dict[location][0]['SWnet'].data + loc_dict[location][0]['LWnet'].data
+    fig, ax = plt.subplots(4,2, figsize = (16,28))
+    ax2 = ax[:,1]
+    ax = ax.flatten()
+    ax2.flatten()
+    lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h'}
+    limits = {2: (40, 100), 3: (0, 25), 1: (-40, 5), 0: (-40, 5), 4: (0, 400), 5: (100, 350), 6: (-100,100), 7: (0, 100)}
+    for axs in ax:
+        axs.spines['top'].set_visible(False)
+        axs.spines['right'].set_visible(False)
+        plt.setp(axs.spines.values(), linewidth=2, color='dimgrey', )
+        axs.set(adjustable='box-forced', aspect='equal')
+        axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+        axs.yaxis.set_label_coords(-0.4, 0.5)
+    for axs in ax2:
+        axs.spines['left'].set_visible(False)
+        axs.spines['right'].set_visible(True)
+        axs.yaxis.set_label_position('right')
+        axs.yaxis.set_ticks_position('right')
+        axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=10)
+        axs.yaxis.set_label_coords(1.45, 0.57)
+    plot = 0
+    min_length = min(loc_dict[location][0]['Tair'].shape[0], loc_dict[location][1]['Tair_2m'].shape[0])
+    surf_met_mod = [loc_dict[location][0]['Ts'].data, loc_dict[location][0]['Tair'].data, loc_dict[location][0]['RH'].data,
+                    loc_dict[location][0]['FF_10m'].data, loc_dict[location][0]['SWdown'].data, loc_dict[location][0]['LWdown'].data, R_net, loc_dict[location][0]['Emelt'].data ]
+    surf_met_obs = [loc_dict[location][1]['Tsobs'], loc_dict[location][1]['Tair_2m'], loc_dict[location][1]['RH'], loc_dict[location][1]['FF_10m'], loc_dict[location][1]['SWin_corr'],
+                    loc_dict[location][1]['LWin'], loc_dict[location][1]['Rnet_corr'], loc_dict[location][1]['melt_energy']]
+    titles = ['$T_S$ \n($^{\circ}$C)', '$T_{air}$ \n($^{\circ}$C)', '\nRelative Humidity \n(%)', '\nWind speed \n(m s$^{-1}$)', '$SW_\downarrow$ \n(W m$^{-2}$)',  '$LW_\downarrow$ \n(W m$^{-2}$)', '$R_{net}$ \n(W m$^{-2}$)', 'E$_{melt}$ \n(W m$^{-2}$)']
+    from itertools import chain
+    for i in range(len(surf_met_mod)):
+        slope, intercept, r2, p, sterr = scipy.stats.linregress(surf_met_obs[i][:min_length], surf_met_mod[i][:min_length, lat_dict[location], lon_dict[location]])
+        if p <= 0.01:
+            ax[plot].text(0.9, 0.15, horizontalalignment='right', verticalalignment='top',
+                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), fontweight = 'bold', transform=ax[plot].transAxes, size=24,
+                          color='dimgrey')
+        else:
+            ax[plot].text(0.9, 0.15, horizontalalignment='right', verticalalignment='top',
+                          s='r$^{2}$ = %s' % np.round(r2, decimals=2), transform=ax[plot].transAxes, size=24,
+                          color='dimgrey')
+        ax[plot].scatter(surf_met_obs[i][:min_length], surf_met_mod[i][:min_length, lat_dict[location], lon_dict[location]], color = '#f68080', s = 50)
+        ax[plot].set_xlim(limits[i][0], limits[i][1])
+        ax[plot].set_ylim(limits[i][0], limits[i][1])
+        ax[plot].plot(ax[plot].get_xlim(), ax[plot].get_ylim(), ls="--", c = 'k', alpha = 0.8)
+        ax[plot].set_xticks([limits[i][0], limits[i][1]])
+        ax[plot].set_yticks([limits[i][0], limits[i][1]])
+        ax[plot].set_xlabel('Observed %s' % titles[i], size = 24, color = 'dimgrey', rotation = 0, labelpad = 10)
+        ax[plot].set_ylabel('Modelled %s' % titles[i], size = 24, color = 'dimgrey', rotation =0, labelpad= 80)
+        lab = ax[plot].text(0.1, 0.85, transform = ax[plot].transAxes, s=lab_dict[plot], fontsize=32, fontweight='bold', color='dimgrey')
+        plot = plot +1
+    plt.subplots_adjust(top = 0.98, hspace = 0.1, bottom = 0.05, wspace = 0.15, left = 0.2, right = 0.8)
+    plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + location + '_validation_correlations.png', transparent=True )
+    plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + location + '_validation_correlations.eps', transparent=True)
+    plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/' + location + '_validation_correlations.pdf', transparent=True)
+
+
+for sta in ['AWS14',  'AWS17', 'AWS18']:
+    correl_plot(location = sta)
+    #for w in ['SEB', 'surf_met']:
+    #    validation_series(which_vars = w, location = sta, minmax = 'no')
+
+
+plt.show()
