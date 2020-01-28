@@ -95,7 +95,7 @@ def create_clim(var_name, seas): # seas should be in the format '???_'
         clim_total = clim.data[:365]
     for i in range(1998,2017):
         if calendar.isleap(i) == True: # if leap year, repeat final day of climatology
-            print(str(i) + ' is leap')
+            #print(str(i) + ' is leap')
             clim_total = np.concatenate((clim_total, clim.data), axis = 0)
             clim_total = np.concatenate((clim_total, clim.data[-1:]), axis = 0)
         else:
@@ -111,8 +111,8 @@ clims = {}
 anoms = {}
 var_dict = {}
 for i in [ 'Tair_1p5m', 'Tair_1p5m_daymax', 'MSLP', 'u_10m', 'v_10m', 'SIC']:#
-    var_dict[i] = load_vars('1998-2017', i)
-    clims[i] = create_clim(i)
+    var_dict[i] = load_vars('1998-2017', i, seas = '')
+    clims[i] = create_clim(i, seas = '')
     anoms[i] = iris.cube.Cube(data = (var_dict[i].data[:7305] - clims[i].data))
 
 try:
@@ -126,10 +126,6 @@ except iris.exceptions.ConstraintMismatchError:
     print('Files not found')
 
 def plot_synop_composite(cf_var, c_var, u_var, v_var, regime, seas):
-    #cf_var = np.mean(cf_var.data[:, :, :], axis=0)
-    #c_var = np.mean(c_var.data[:, :, :], axis=0)
-    #u_var = np.mean(u_var.data[:, :, :], axis=0)
-    #v_var = np.mean(v_var.data[:, 1:, :], axis=0)
     fig = plt.figure(frameon=False, figsize=(10, 13))  # !!change figure dimensions when you have a larger model domain
     fig.patch.set_visible(False)
     ax = fig.add_subplot(111)#, projection=ccrs.PlateCarree())
@@ -159,18 +155,19 @@ def plot_synop_composite(cf_var, c_var, u_var, v_var, regime, seas):
     ax.set_ylim(PlotLatMin, PlotLatMax)
     ax.tick_params(which='both', axis='both', labelsize=34, labelcolor='dimgrey', pad=10, size=0, tick1On=False,
                    tick2On=False)
-    bwr_zero = shiftedColorMap(cmap=matplotlib.cm.bwr, min_val=-20., max_val=5., name='bwr_zero', var=cf_var.data, start=0.15,
-                               stop=0.85) #-6, 3
+    bwr_zero = shiftedColorMap(cmap=matplotlib.cm.bwr, min_val=-3., max_val=10., name='bwr_zero', var=cf_var.data, start=0.15,stop=0.85) #-20, 5
     xlon, ylat = np.meshgrid(real_lon, real_lat)
-    c = ax.pcolormesh(xlon, ylat, cf_var, cmap=bwr_zero,vmin=-20., vmax=5., zorder=1)  # latlon=True, transform=ccrs.PlateCarree(),
+    Larsen_box = np.zeros((220,220))
+    Larsen_box[40:135, 90:155] = 1.
+    c = ax.pcolormesh(xlon, ylat, np.ma.masked_where((Larsen_box == 0.), cf_var), cmap=bwr_zero,vmin=-3., vmax=10., zorder=1)  # latlon=True, transform=ccrs.PlateCarree(),
     cs = ax.contour(xlon, ylat, np.ma.masked_where(lsm.data == 1, c_var), latlon=True, colors='k', zorder=4)
     ax.clabel(cs, inline=True, fontsize = 24, inline_spacing = 30, fmt =  '%1.0f')
     coast = ax.contour(xlon, ylat, lsm.data, levels=[0], colors='#222222', lw=2, latlon=True, zorder=2)
     topog = ax.contour(xlon, ylat, orog.data, levels=[50], colors='#222222', linewidth=1.5, latlon=True, zorder=3)
-    CBarXTicks = [-20, -10, 0,  5]  # CLevs[np.arange(0,len(CLevs),int(np.ceil(len(CLevs)/5.)))]
+    CBarXTicks = [-3, 0, 5, 10]#[-20, -10, 0,  5]  # CLevs[np.arange(0,len(CLevs),int(np.ceil(len(CLevs)/5.)))]
     CBAxes = fig.add_axes([0.22, 0.2, 0.6, 0.025])
     CBar = plt.colorbar(c, cax=CBAxes, orientation='horizontal', ticks=CBarXTicks, extend = 'both')  #
-    CBar.set_label('Mean daily maximum 1.5 m \nair temperature ($^{\circ}$C)', fontsize=34, labelpad=10, color='dimgrey')
+    CBar.set_label('Mean daily maximum 1.5 m \nair temperature anomaly ($^{\circ}$C)', fontsize=34, labelpad=10, color='dimgrey')
     CBar.solids.set_edgecolor("face")
     CBar.outline.set_edgecolor('dimgrey')
     CBar.ax.tick_params(which='both', axis='both', labelsize=34, labelcolor='dimgrey', pad=10, size=0, tick1On=False,
@@ -210,32 +207,38 @@ def find_case(var, seas):
     if var == 'land_snow_melt_amnt':
         return np.cumsum(cube[:,0,:,:].data, axis = 0), np.cumsum(clim[:,0,:,:].data, axis = 0), np.cumsum(anom[:,0,:,:], axis=0)
     else:
-        return np.mean(cube[:,0,:,:].data, axis = 0), clim[:,0,:,:], np.mean(anom[:,0,:,:], axis=0)
+        return np.mean(cube[50:,0,:,:].data, axis = 0), clim[50:,0,:,:], np.mean(anom[50:,0,:,:], axis=0)
 
-#MAM_16_Tmax = iris.load_cube(filepath + 'MAM_2016_Tair_1p5m_daymax.nc')
-#MAM_16_Tmax.convert_units('celsius')
-#MAM_16_Tmax_anom = MAM_16_Tmax.data - Tmax_clim[60:152].data
-#MAM_16_u, MAM_16_clim_u, MAM_16_uanom = find_case('u_10m', 'MAM_2016')
-#MAM_16_v, MAM_16_clim_v, MAM_16_vanom = find_case('v_10m', 'MAM_2016')
-#MAM_16_MSLP, MAM_16_clim_MSLP, MAM_16_MSLPanom = find_case('MSLP', 'MAM_2016')
+MAM_16_Tmax = iris.load_cube(filepath + 'MAM_2016_Tair_1p5m_daymax.nc')
+Tmax_clim = iris.load_cube(filepath + 'MAM_Tair_1p5m_daymax_climatology.nc')
+Tmax_clim.convert_units('celsius')
+MAM_16_Tmax.convert_units('celsius')
+MAM_16_Tmax_anom = MAM_16_Tmax.data[50:] - Tmax_clim.data[50:]#[60:152]
+MAM_16_u, MAM_16_clim_u, MAM_16_uanom = find_case('u_10m', 'MAM_2016')
+MAM_16_v, MAM_16_clim_v, MAM_16_vanom = find_case('v_10m', 'MAM_2016')
+MAM_16_MSLP, MAM_16_clim_MSLP, MAM_16_MSLPanom = find_case('MSLP', 'MAM_2016')
 
 #Plot met conditions
-#plot_synop_composite(np.mean(MAM_16_Tmax_anom[:,0,:,:], axis = 0), MAM_16_MSLP, MAM_16_u, MAM_16_v, regime = 'MAM_2016_mean_cond_Tmax')
+plot_synop_composite(np.mean(MAM_16_Tmax_anom[:,0,:,:], axis = 0), MAM_16_MSLP, MAM_16_u, MAM_16_v, regime = 'MAM_2016_mean_cond_Tmax_anom_Apr_onwards', seas = '')
 
+#plot_synop_composite(np.mean(MAM_16_Tmax_anom[:,0,:,:], axis = 0), MAM_16_MSLPanom, MAM_16_uanom, MAM_16_vanom, regime = 'MAM_2016_anom_cond_Tmax', seas = '')
 
-#MAM_16_HL, MAM_16_clim_HL, MAM_16_HLanom = find_case('latent_heat', 'MAM_2016')
-#MAM_16_HS, MAM_16_clim_HS, MAM_16_HSanom = find_case('sensible_heat', 'MAM_2016')
-#
-##MAM_16_melt, MAM_16_clim_melt, MAM_16_meltanom = find_case('land_snow_melt_flux', 'MAM_2016')
+MAM_16_HL, MAM_16_clim_HL, MAM_16_HLanom = find_case('latent_heat', 'MAM_2016')
+MAM_16_HS, MAM_16_clim_HS, MAM_16_HSanom = find_case('sensible_heat', 'MAM_2016')
+
+MAM_16_Emelt, MAM_16_clim_Emelt, MAM_16_Emeltanom = find_case('land_snow_melt_flux', 'MAM_2016')
 #MAM_16_melt, MAM_16_clim_melt, MAM_16_meltanom = find_case('land_snow_melt_amnt', 'MAM_2016')
 #MAM_16_melt, MAM_16_clim_melt, MAM_16_meltanom = MAM_16_melt[-1], MAM_16_clim_melt[-1], MAM_16_meltanom[-1]
-#MAM_16_SWnet, MAM_16_clim_SWnet, MAM_16_SWnetanom = find_case('surface_SW_net', 'MAM_2016')
-#MAM_16_LWnet, MAM_16_clim_LWnet, MAM_16_LWnetanom = find_case('surface_LW_net', 'MAM_2016')
+MAM_16_SWnet, MAM_16_clim_SWnet, MAM_16_SWnetanom = find_case('surface_SW_net', 'MAM_2016')
+MAM_16_LWnet, MAM_16_clim_LWnet, MAM_16_LWnetanom = find_case('surface_LW_net', 'MAM_2016')
+
+MAM_16_E_tot = MAM_16_SWnet + MAM_16_LWnet + MAM_16_HL + MAM_16_HS
+MAM_16_clim_E_tot = iris.load_cube(filepath + 'E_tot_climatology.nc')
+MAM_16_E_totanom = MAM_16_E_tot - MAM_16_clim_E_tot.data
 #
-#MAM_16_E_tot = MAM_16_SWnet + MAM_16_LWnet + MAM_16_HL + MAM_16_HS
-#MAM_16_clim_E_tot = iris.load_cube(filepath + 'E_tot_climatology.nc')
-#MAM_16_E_totanom = MAM_16_E_tot - MAM_16_clim_E_tot.data
-#
+
+plot_SEB_composites(MAM_16_SWnet, MAM_16_LWnet, MAM_16_HL, MAM_16_HS, MAM_16_E_tot, MAM_16_Emelt, regime = 'MAM_16_mean_SEB_Apr_onwards', seas='')
+
 def compare_melt():
     totm1516 = iris.load_cube(filepath + 'total_melt_amnt_during_15-16_melt_season.nc')
     totm1516 = totm1516.data*108
@@ -273,8 +276,8 @@ def calc_total_melt_LC(melt_var):
 # Identify patterns
 
 print('Loading observed indices... \n\n')
-var_dict['u_Plev'] = load_vars('1998-2017', 'u_wind_P_levs')
-var_dict['u_prof']  = load_vars('1998-2017', 'u_wind_full_profile')
+var_dict['u_Plev'] = load_vars('1998-2017', 'u_wind_P_levs', seas = '')
+var_dict['u_prof']  = load_vars('1998-2017', 'u_wind_full_profile', seas = '')
 SAM_full = pd.read_csv(filepath + 'Daily_mean_SAM_index_1998-2017.csv', usecols = ['SAM'], dtype = np.float64, header = 0, na_values = '*******')
 SAM_full.index = pd.date_range('1998-01-01', '2017-12-31', freq = 'D')
 SAM_full = SAM_full.values[:,0]
@@ -327,7 +330,7 @@ print('Calculating Froude number... \n\n')
 Fr, h_hat = Froude_number(np.mean(var_dict['u_prof'].data[:, 4:23, 75:175, 4:42], axis = (1,2,3)))
 var_dict['Fr'] = Fr[:7305]
 
-def apply_composite_mask(regime, var):
+def apply_composite_mask(regime, var, var_dict):
     regime_mask = np.zeros(var.shape[0])
     if regime == 'barrier':
         indicator_var = var_dict['v_10m'][:,0,:,:]
@@ -419,12 +422,12 @@ def apply_composite_mask(regime, var):
 
 # Load SEB and cloud terms
 for i in ['land_snow_melt_amnt','cl_frac', 'land_snow_melt_flux', 'surface_SW_net', 'surface_LW_net', 'latent_heat', 'sensible_heat', 'E_tot', 'total_column_liquid']:
-    var_dict[i] = load_vars('1998-2017', i)
-    clims[i] = create_clim(i)
+    var_dict[i] = load_vars('1998-2017', i, seas = '')
+    clims[i] = create_clim(i, seas = '')
     anoms[i] = iris.cube.Cube(data=(var_dict[i].data[:7305] - clims[i].data))
 
-var_dict['mean_cloud'] = np.mean(var_dict['cl_frac'][:7305, 0, 40:140, 85:155].data, axis = (1,2))
-var_dict['Larsen_LWP'] = np.mean(var_dict['total_column_liquid'][:7305, 0, 40:140, 85:155].data, axis = (1,2))
+var_dict['mean_cloud'] = np.mean(var_dict['cl_frac'][:7305, 0, 40:135, 90:155].data, axis = (1,2))
+var_dict['Larsen_LWP'] = np.mean(var_dict['total_column_liquid'][:7305, 0, 40:135, 90:155].data, axis = (1,2))
 
 def standardise_anomaly(var, anom, clim):
     ''' Standardises anomalies by dividing daily mean values by the standard deviation of the daily climatology value for the entire period.
@@ -484,7 +487,7 @@ melt_land[melt_land > 800] = np.nan
 #melt_land[melt_land > 75] = 75
 #melt_anom_norm = normalise_anomaly(melt_land, scale = (-1,1))
 #E_anom_norm = normalise_anomaly( anoms['E_tot'].data[:,0,:,:], scale = (-1,1))
-var_dict['Larsen_melt'] = np.mean(var_dict['land_snow_melt_amnt'][:7305, 0,40:140, 85:155].data, axis = (1,2))
+var_dict['Larsen_melt'] = np.mean(var_dict['land_snow_melt_amnt'][:7305, 0,40:135, 90:155].data, axis = (1,2))
 var_dict['Larsen_melt'][var_dict['Larsen_melt'] == 0] = np.nan
 
 def apply_Larsen_mask(var):
@@ -507,18 +510,18 @@ def plot_SEB_composites(var1, var2, var3, var4, var5, var6, regime, seas):
     fig.patch.set_visible(False)
     var_list = [var1[:7305], var2[:7305], var3[:7305], var4[:7305], var5[:7305], var6[:7305]]
     for i, j in zip(axs, ['SW$_{net}$', 'LW$_{net}$', 'H$_{L}$','H$_{S}$',  'E$_{tot}$', 'E$_{melt}$',]):
-        i.set_title(j, color = 'dimgrey', fontsize = 34)
-    plt.axis = 'off'
-    lims = {'SW$_{net}$': (-100, 100),
-             'LW$_{net}$': (-100, 100),
-            'H$_{L}$': (-100,50),
-            'H$_{S}$': (-100, 100),
+        i.set_title(j, color = 'dimgrey', fontsize = 34, pad = 20)
+        plt.axis = 'off'
+    lims = {'SW$_{net}$': (-50, 50),
+             'LW$_{net}$': (-50, 50),
+            'H$_{L}$': (-50,50),
+            'H$_{S}$': (-50, 50),
             'E$_{tot}$': (-50,50),
             'E$_{melt}$': (-5,5)
     }
     for ax in [axs[1], axs[3], axs[5]]:
         ax.yaxis.tick_right()
-    for ax, cf_var in zip(axs[:-1], var_list[:-1]):
+    for ax, cf_var, j in zip(axs, var_list, ['SW$_{net}$', 'LW$_{net}$', 'H$_{L}$','H$_{S}$',  'E$_{tot}$', 'E$_{melt}$',]):
         ax.axis = 'off'
         ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0, tick1On=False,
                        tick2On=False)
@@ -549,8 +552,10 @@ def plot_SEB_composites(var1, var2, var3, var4, var5, var6, regime, seas):
         ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0, tick1On=False,tick2On=False)
         xlon, ylat = np.meshgrid(real_lon, real_lat)
         #cf_var, regime_mask = apply_composite_mask(regime, var)
-        bwr_zero = shiftedColorMap(cmap=matplotlib.cm.bwr, min_val=lims[j][0], max_val=lims[j][1], name='bwr_zero', var=cf_var.data, start=0.15, stop=0.85)
-        c = ax.pcolormesh(xlon, ylat, cf_var, cmap=bwr_zero, vmin=lims[j][0], vmax=lims[j][1], zorder=1)  # latlon=True, transform=ccrs.PlateCarree(),
+        Larsen_box = np.zeros((220, 220))
+        Larsen_box[40:135, 90:155] = 1.
+        #bwr_zero = shiftedColorMap(cmap=matplotlib.cm.bwr, min_val=lims[j][0], max_val=lims[j][1], name='bwr_zero', var=cf_var[40:135, 90:155], start=0.15, stop=0.85)
+        c = ax.pcolormesh(xlon, ylat, np.ma.masked_where((Larsen_box == 0.), cf_var), cmap='bwr', vmin=lims[j][0], vmax=lims[j][1], zorder=1)  # latlon=True, transform=ccrs.PlateCarree(),
         plt.sca(ax)
         CBarXTicks = np.linspace(lims[j][0], lims[j][1], num = 3)
         CBar = plt.colorbar(c, orientation='horizontal', extend='both', ticks=CBarXTicks)
@@ -560,11 +565,6 @@ def plot_SEB_composites(var1, var2, var3, var4, var5, var6, regime, seas):
         CBar.outline.set_linewidth(2)
         coast = ax.contour(xlon, ylat, lsm.data, levels=[0], colors='#222222', lw=2, latlon=True, zorder=2)
         topog = ax.contour(xlon, ylat, orog.data, levels=[50], colors='#222222', linewidth=1.5, latlon=True, zorder=3)
-    bwr_zero = shiftedColorMap(cmap=matplotlib.cm.bwr, min_val=-1., max_val=0., name='bwr_zero', var=var6.data,
-                               start=0.15, stop=0.85)
-    axs[5].pcolormesh(xlon,ylat, var6, vmin =-1, vmax = 0, cmap = bwr_zero)
-    coast = axs[5].contour(xlon, ylat, lsm.data, levels=[0], colors='#222222', lw=2, latlon=True, zorder=2)
-    topog = axs[5].contour(xlon, ylat, orog.data, levels=[50], colors='#222222', linewidth=1.5, latlon=True, zorder=3)
     #CBarXTicks = [-1, 0, 1]  # CLevs[np.arange(0,len(CLevs),int(np.ceil(len(CLevs)/5.)))]
     #CBAxes = fig.add_axes([0.2, 0.15, 0.6, 0.015])
     #CBar = plt.colorbar(c, cax=CBAxes, orientation='horizontal', extend='both', ticks=CBarXTicks)
@@ -573,10 +573,13 @@ def plot_SEB_composites(var1, var2, var3, var4, var5, var6, regime, seas):
     #CBar.outline.set_edgecolor('dimgrey')
     #CBar.ax.tick_params(which='both', axis='both', labelsize=34, labelcolor='dimgrey', pad=10, size=0, tick1On=False,
     #                    tick2On=False)
-    plt.subplots_adjust(bottom = 0.22, top = 0.9, hspace = 0.3, wspace = 0.25, right = 0.87)
+    plt.subplots_adjust(bottom = 0.06, top = 0.94, hspace = 0.3, wspace = 0.25, right = 0.87)
     plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/SEB_composite_subplot_' + regime + '_' + seas + '.png')
     plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/SEB_composite_subplot_' + regime + '_' + seas + '.eps')
     #plt.show()
+
+plot_SEB_composites(MAM_16_SWnetanom, MAM_16_LWnetanom, MAM_16_HLanom, MAM_16_HSanom, np.mean(MAM_16_E_totanom[:,0,:,:], axis = 0), MAM_16_Emeltanom, regime = 'MAM_16_anom_SEB_Apr_onwards', seas = '')
+
 
 #plot_SEB_composites( SW_anom_norm, LW_anom_norm, HL_anom_norm, HS_anom_norm, E_anom_norm, melt_anom_norm , 'barrier')
 
@@ -624,16 +627,18 @@ def plot_melt(cf_var, regime, seas):
     ax.set_ylim(PlotLatMin, PlotLatMax)
     ax.tick_params(which='both', axis='both', labelsize=34, labelcolor='dimgrey', pad=10, size=0, tick1On=False,
                    tick2On=False)
-    bwr_zero = shiftedColorMap(cmap=matplotlib.cm.bwr, min_val=-3., max_val=3., name='bwr_zero', var=cf_var.data, start=0.15, stop=0.85) #-6, 3
+    bwr_zero = shiftedColorMap(cmap=matplotlib.cm.bwr, min_val=-5., max_val=5., name='bwr_zero', var=cf_var.data, start=0.15, stop=0.85) #-6, 3
     xlon, ylat = np.meshgrid(real_lon, real_lat)
-    c = ax.pcolormesh(xlon, ylat, cf_var, cmap = bwr_zero, vmin = -3., vmax = 3.)
+    Larsen_box = np.zeros((220, 220))
+    Larsen_box[40:135, 90:155] = 1.
+    c = ax.pcolormesh(xlon, ylat, np.ma.masked_where((Larsen_box == 0.), cf_var), cmap = bwr_zero, vmin = -5., vmax = 5.)
     #shaded = np.zeros((220,220))
     #shaded[60:130,:] = 1.
     #ax.contour(xlon, ylat, shaded, levels= [1.], colors='dimgrey', linewidths = 4, latlon=True)
-    #ax.text(0., 1.1, zorder=6, transform=ax.transAxes, s='b', fontsize=32, fontweight='bold', color='dimgrey')
+    ax.text(0., 1.1, zorder=6, transform=ax.transAxes, s='b', fontsize=32, fontweight='bold', color='dimgrey')
     coast = ax.contour(xlon, ylat, lsm.data, levels=[0], colors='#222222', lw=2, latlon=True, zorder=2)
     topog = ax.contour(xlon, ylat, orog.data, levels=[50], colors='#222222', linewidth=1.5, latlon=True, zorder=3)
-    CBarXTicks = [-3,   0, 3,]  # CLevs[np.arange(0,len(CLevs),int(np.ceil(len(CLevs)/5.)))]
+    CBarXTicks = [-5,   0, 5,]  # CLevs[np.arange(0,len(CLevs),int(np.ceil(len(CLevs)/5.)))]
     CBAxes = fig.add_axes([0.25, 0.15, 0.6, 0.03])
     CBar = plt.colorbar(c, cax=CBAxes, orientation='horizontal', ticks=CBarXTicks, extend = 'both')  #
     CBar.set_label('Mean E$_{melt}$ anomaly (W m$^{-2}$)', fontsize=34, labelpad=10, color='dimgrey')
@@ -645,41 +650,41 @@ def plot_melt(cf_var, regime, seas):
     plt.subplots_adjust(left = 0.2, bottom = 0.3, right = 0.85)
     plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Melt_composite_' + regime + '_' + seas + '.png', transparent = True)
     plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Melt_composite_' + regime + '_' + seas + '.eps', transparent = True)
-    plt.show()
+    #plt.show()
 
 #    masks[regime] = regime_mask
 
 
-#plot_melt(HL_anom_norm, regime + '_HL')
+plot_melt(MAM_16_Emeltanom, 'MAM_Emelt_anom_Apr_onwards' , '')
 
 def melt_transect():
     fig, ax = plt.subplots(figsize=(10, 4.5))
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     plt.setp(ax.spines.values(), linewidth=3, color='dimgrey')
-    ax.plot(np.max(MAM_16_melt[60:130,:],axis = 0), color = 'red', lw = 2.5)
+    ax.plot(np.max(MAM_16_Emelt[60:130,:],axis = 0), color = 'red', lw = 2.5)
     ax.set_ylabel('\n\n\n\nMax E$_{melt}$  \n(W m$^{-2}$)', fontname='SegoeUI semibold', color='dimgrey', rotation=0,
                   fontsize=20, labelpad=50)
     ax.yaxis.set_label_coords(-0.2,0.4)
     ax.set_xlim(0,220)
-    ax.text(-0, 1.1, zorder=6, transform=ax.transAxes, s='b', fontsize=32, fontweight='bold',
+    ax.text(-0, 1.1, zorder=6, transform=ax.transAxes, s='a', fontsize=32, fontweight='bold',
             color='dimgrey')
     plt.tick_params(axis='x', which='both', labelbottom= False, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=5)
     plt.tick_params(axis='y', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey', pad=5)
     plt.subplots_adjust(left = 0.2,  right = 0.85, top = 0.85)
-    plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/melt_transect_MAM_16.eps')
-    plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/melt_transect_MAM_16.png')
+    plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/melt_transect_MAM_16_Apr_onwards.eps')
+    plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/melt_transect_MAM_16_Apr_onwards.png')
     plt.show()
 
-#melt_transect()
+melt_transect()
 
 print(' Calculating melt during each regime')
-Larsen_melt = var_dict['land_snow_melt_amnt'].data[:7305,0,40:140, 85:155]
+Larsen_melt = var_dict['land_snow_melt_amnt'].data[:7305,0,40:135, 90:155]
 totm = np.copy(Larsen_melt)
 # calculate total melt in one gridbox
 melt_tot_per_gridbox = np.zeros((7305, 100,70))
 for t in range(7305):
-    totm[lsm[40:140, 85:155] == 0.] = np.nan
+    totm[lsm[40:135, 90:155] == 0.] = np.nan
     for i in range(100):
         for j in range(70):
             melt_tot_per_gridbox[t, i, j] = totm[t, i, j] * (4000 * 4000)  # total kg per gridbox
@@ -687,56 +692,54 @@ for t in range(7305):
 melt_tot = np.nansum(np.ma.masked_greater(melt_tot_per_gridbox, 3.20000006e+25), axis = 0) # remove sea values
 melt_tot = np.nansum(melt_tot)/10**12 # integrated ice shelf melt amount (in Gt!)
 
-melt_list = []
-regime_list = []
-
-for regime in ['blocked', 'flow-over', 'cloudy', 'clear']:#, 'melt25', 'melt75', 'LWP25', 'LWP75', 'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier', ]: # 'SIC_Weddell_L', 'SIC_Weddell_H',
-    print('\n\nPlotting synoptic composites during ' + regime + '...\n\n')
-    #c_var, regime_mask = apply_composite_mask(regime, var_dict['MSLP'][:7305, 0, :, :].data)
-    #cf_var, regime_mask = apply_composite_mask(regime, anoms['Tair_1p5m_daymax'][:7305, 0, :, :].data)  # try this with Tmax anomalies instead
-    #u_var, regime_mask = apply_composite_mask(regime, var_dict['u_10m'][:7305, 0, :, :].data)
-    #v_var, regime_mask = apply_composite_mask(regime, var_dict['v_10m'][:7305, 0, :, :].data)
-    #plot_synop_composite(cf_var, c_var, u_var, v_var, regime, seas = 'ANN')
-    print('\n\nPlotting SEB composites during ' + regime + '...\n\n')
-    SW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_SW_net'])
-    LW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_LW_net'])
-    HL_masked, regime_mask = apply_composite_mask(regime, anoms['latent_heat'])
-    HS_masked, regime_mask = apply_composite_mask(regime, anoms['sensible_heat'])
-    Etot_masked, regime_mask = apply_composite_mask(regime, anoms['Etot'])
-    melt_masked, regime_mask = apply_composite_mask(regime, anoms['land_snow_melt_flux'])
-    plot_SEB_composites(SW_masked, LW_masked, HL_masked, HS_masked, Etot_masked, melt_masked, regime, seas = 'ANN')
-    melt_masked, regime_mask = apply_composite_mask(regime, anoms['land_snow_melt_flux'].data[:7305,0,:,:])
-    plot_melt(melt_masked, regime, seas = 'ANN')
-    regime_freq = (np.float(np.count_nonzero(regime_mask))/ 7305.)*100
-    melt_regime = np.copy(melt_tot_per_gridbox) # copy total
-    melt_regime[regime_mask == 0] = np.nan # apply mask
-    melt_tot_regime = np.nansum(melt_regime, axis=0) # sum over time
-    melt_tot_regime = np.ma.masked_greater(melt_tot_regime, 3e+20) # mask sea values
-    melt_tot_regime = np.nansum(melt_tot_regime)/10**12 # sum across entire ice shelf, and return in Gt meltwater
-    melt_tot_regime_pct = (melt_tot_regime/melt_tot)*100 # find as percentage of melt
-    print(regime + ' associated with ' +  str(melt_tot_regime_pct) + ' % of melting during hindcast\n\n')
-    print(regime + ' occurs ' + str(regime_freq) + ' % of the time during hindcast\n\n')
-    melt_list.append(melt_tot_regime_pct)
-    regime_list.append(regime_freq)
-
-df = pd.DataFrame(index = ['blocked', 'flow-over', 'cloudy', 'clear', 'melt25', 'melt75','LWP25', 'LWP75',  'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier'])
-df['melt_pct'] = pd.Series(melt_list, index = ['blocked', 'flow-over', 'cloudy', 'clear', 'melt25', 'melt75','LWP25', 'LWP75',  'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier'])
-df['regime_freq'] = pd.Series(regime_list, index = ['blocked', 'flow-over', 'cloudy', 'clear', 'melt25', 'melt75', 'LWP25', 'LWP75', 'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier'])
-df.to_csv(filepath + 'regime_melt_freq.csv')
-
-print(regime_freq)
-
-print(regime)
+def run_composites():
+    melt_list = []
+    regime_list = []
+    for regime in ['blocked', 'flow-over', 'cloudy', 'clear']:#, 'melt25', 'melt75', 'LWP25', 'LWP75', 'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier', ]: # 'SIC_Weddell_L', 'SIC_Weddell_H',
+        print('\n\nPlotting synoptic composites during ' + regime + '...\n\n')
+        #c_var, regime_mask = apply_composite_mask(regime, var_dict['MSLP'][:7305, 0, :, :].data)
+        #cf_var, regime_mask = apply_composite_mask(regime, anoms['Tair_1p5m_daymax'][:7305, 0, :, :].data)  # try this with Tmax anomalies instead
+        #u_var, regime_mask = apply_composite_mask(regime, var_dict['u_10m'][:7305, 0, :, :].data)
+        #v_var, regime_mask = apply_composite_mask(regime, var_dict['v_10m'][:7305, 0, :, :].data)
+        #plot_synop_composite(cf_var, c_var, u_var, v_var, regime, seas = 'ANN')
+        print('\n\nPlotting SEB composites during ' + regime + '...\n\n')
+        SW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_SW_net'], var_dict)
+        LW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_LW_net'], var_dict)
+        HL_masked, regime_mask = apply_composite_mask(regime, anoms['latent_heat'], var_dict)
+        HS_masked, regime_mask = apply_composite_mask(regime, anoms['sensible_heat'], var_dict)
+        Etot_masked, regime_mask = apply_composite_mask(regime, anoms['Etot'], var_dict)
+        melt_masked, regime_mask = apply_composite_mask(regime, anoms['land_snow_melt_flux'][:7305,0,:,:].data, var_dict)
+        plot_SEB_composites(SW_masked, LW_masked, HL_masked, HS_masked, Etot_masked, melt_masked, regime, seas = 'ANN')
+        plot_melt(melt_masked, regime, seas = 'ANN')
+        regime_freq = (np.float(np.count_nonzero(regime_mask))/ 7305.)*100
+        melt_regime = np.copy(melt_tot_per_gridbox) # copy total
+        melt_regime[regime_mask == 0] = np.nan # apply mask
+        melt_tot_regime = np.nansum(melt_regime, axis=0) # sum over time
+        melt_tot_regime = np.ma.masked_greater(melt_tot_regime, 3e+20) # mask sea values
+        melt_tot_regime = np.nansum(melt_tot_regime)/10**12 # sum across entire ice shelf, and return in Gt meltwater
+        melt_tot_regime_pct = (melt_tot_regime/melt_tot)*100 # find as percentage of melt
+        print(regime + ' associated with ' +  str(melt_tot_regime_pct) + ' % of melting during hindcast\n\n')
+        print(regime + ' occurs ' + str(regime_freq) + ' % of the time during hindcast\n\n')
+        melt_list.append(melt_tot_regime_pct)
+        regime_list.append(regime_freq)
+    df = pd.DataFrame(index = ['blocked', 'flow-over', 'cloudy', 'clear', 'melt25', 'melt75','LWP25', 'LWP75',  'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier'])
+    df['melt_pct'] = pd.Series(melt_list, index = ['blocked', 'flow-over', 'cloudy', 'clear', 'melt25', 'melt75','LWP25', 'LWP75',  'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier'])
+    df['regime_freq'] = pd.Series(regime_list, index = ['blocked', 'flow-over', 'cloudy', 'clear', 'melt25', 'melt75', 'LWP25', 'LWP75', 'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier'])
+    df.to_csv(filepath + 'regime_melt_freq.csv')
+    print(regime_freq)
+    print(regime)
 
 def plot_melt_composites(seas):
     fig, axs = plt.subplots(4,2, frameon=False, figsize=(11, 18))
     axs = axs.flatten()
     fig.patch.set_visible(False)
-    reg_list = ['barrier', 'ASL', 'SAM+', 'SAM-', 'ENSO+', 'ENSO-' 'blocked', 'flow-over']
-    for ax in [axs[1], axs[3], axs[5]]:
+    lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h'}
+    reg_list = ['SAM+', 'SAM-', 'ENSO+', 'ENSO-' 'blocked', 'flow-over', 'barrier', 'ASL', ]
+    for ax in [axs[1], axs[3], axs[5], axs[7]]:
         ax.yaxis.tick_right()
-    for i in range(6):
-        melt, reg_mask = apply_composite_mask(reg_list[i], anoms['land_snow_melt_flux'].data[:7305,0,:,:])
+    for i in range(8):
+        ax.text(0., 1.1, zorder=6, transform=ax.transAxes, s=lab_dict[i], fontsize=32, fontweight='bold', color='dimgrey')
+        melt, reg_mask = apply_composite_mask(reg_list[i], anoms['land_snow_melt_flux'].data[:seas_lens[seas]-1,0,:,:], var_dict)
         ax = axs[i]
         ax.set_title(reg_list[i], color = 'dimgrey', fontsize = 34)
         ax.axis = 'off'
@@ -769,13 +772,15 @@ def plot_melt_composites(seas):
                        tick2On=False)
        # bwr_zero = shiftedColorMap(cmap=matplotlib.cm.bwr, min_val=-6., max_val=3., name='bwr_zero', var=cf_var.data, start=0.15, stop=0.85)
         xlon, ylat = np.meshgrid(real_lon, real_lat)
-        c = ax.pcolormesh(xlon, ylat, melt, vmin = -3, vmax = 3, cmap = 'bwr')#, cmap=bwr_zero, vmin=-6., vmax=3., zorder=1)  # latlon=True, transform=ccrs.PlateCarree(),
+        Larsen_box = np.zeros((220,220))
+        Larsen_box[40:135, 90:155] = 1.
+        c = ax.pcolormesh(xlon, ylat, np.ma.masked_where((Larsen_box ==0.), melt), vmin = -3, vmax = 3, cmap = 'bwr')#, cmap=bwr_zero, vmin=-6., vmax=3., zorder=1)  # latlon=True, transform=ccrs.PlateCarree(),
         coast = ax.contour(xlon, ylat, lsm.data, levels=[0], colors='#222222', lw=2, latlon=True, zorder=2)
         topog = ax.contour(xlon, ylat, orog.data, levels=[50], colors='#222222', linewidth=1.5, latlon=True, zorder=3)
     CBarXTicks = [-3, 0, 3]  # CLevs[np.arange(0,len(CLevs),int(np.ceil(len(CLevs)/5.)))]
     CBAxes = fig.add_axes([0.25, 0.15, 0.55, 0.02])
     CBar = plt.colorbar(c, cax=CBAxes, orientation='horizontal', extend='both', ticks=CBarXTicks)
-    CBar.set_label('Melt flux anomaly (W m$^{-2}$)', fontsize=34, labelpad=10, color='dimgrey')
+    CBar.set_label('Mean E$_{melt}$ anomaly (W m$^{-2}$)', fontsize=34, labelpad=10, color='dimgrey')
     CBar.solids.set_edgecolor("face")
     CBar.outline.set_edgecolor('dimgrey')
     CBar.ax.tick_params(which='both', axis='both', labelsize=34, labelcolor='dimgrey', pad=10, size=0, tick1On=False, tick2On=False)
@@ -785,7 +790,7 @@ def plot_melt_composites(seas):
     plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Melt_flux_anomalies_all_regimes_' + seas + '.eps')
     plt.show()
 
-plot_melt_composites(seas = 'ANN')
+#plot_melt_composites(seas = 'ANN')
 
 ## Approach 1: Define specific large-scale regimes to evaluate:
 ##
@@ -869,8 +874,8 @@ def calc_seas_corrs():
     for i in idx:
         var = load_vars('1998-2017', i)
         clim = create_clim(i)
-        var_masked = var[:,0,40:140, 85:155].data
-        clim_masked= clim[:,0,40:140, 85:155].data
+        var_masked = var[:,0,40:135, 90:155].data
+        clim_masked= clim[:,0,40:135, 90:155].data
         anom = np.mean(var_masked, axis=(1, 2))[:7305] - np.mean(clim_masked, axis=(1, 2))[:7305]
         var_list.append(np.mean(var_masked, axis=(1, 2))[:7305])
         clim_list.append(np.mean(clim_masked, axis=(1, 2))[:7305])
@@ -968,123 +973,121 @@ print('\nCalculating seasonal correlations\n')
 # Do seasonal compositing
 
 def seas_composite():
-    for seas in ['DJF', 'MAM', 'JJA', 'SON']:
-        var_dict = {}
-        clims = {}
-        anoms = {}
-        seas_lens = {'DJF': 1805,
-                     'MAM': 1840,
-                     'JJA': 1840,
-                     'SON': 1820}
-        for i in [ 'Tair_1p5m', 'Tair_1p5m_daymax', 'MSLP', 'u_10m', 'v_10m', 'SIC', 'land_snow_melt_amnt','cl_frac', 'u_prof', 'u_Plev', 'land_snow_melt_flux', 'surface_SW_net', 'surface_LW_net', 'latent_heat', 'sensible_heat', 'E_tot']:#
-            var_dict[i] = load_vars('1998-2017', i, seas = seas + '_')
-            clims[i] = create_clim(i, seas = seas + '_')
-            anoms[i] = iris.cube.Cube(data=(var_dict[i][:seas_lens[seas]].data - clims[i][:seas_lens[seas]].data))
+for seas in [ 'DJF','SON', 'MAM', 'JJA', ]:
+    var_dict = {}
+    clims = {}
+    anoms = {}
+    seas_lens = {'DJF': 1805,
+                 'MAM': 1840,
+                 'JJA': 1840,
+                 'SON': 1820}
+    for i in [ 'Tair_1p5m', 'Tair_1p5m_daymax', 'MSLP', 'u_10m', 'v_10m', 'SIC', 'land_snow_melt_amnt','cl_frac', 'total_column_liquid','land_snow_melt_flux', 'surface_SW_net', 'surface_LW_net', 'latent_heat', 'sensible_heat', 'E_tot']:#
+        print('\nLoading ' + seas + ' ' +  i)
+        var_dict[i] = load_vars('1998-2017', i, seas = seas + '_')
+        clims[i] = create_clim(i, seas = seas + '_')
+        anoms[i] = iris.cube.Cube(data=(var_dict[i][:seas_lens[seas]].data - clims[i][:seas_lens[seas]].data))
+    for i in ['u_wind_full_profile', 'u_wind_P_levs',]:
+        print('\nLoading ' + seas + ' ' + i)
+        var_dict[i] = load_vars('1998-2017', i, seas=seas + '_')
         # Normalise anomalies
-        print('Normalising anomalies... \n\n')
-        cl_anom_norm = normalise_anomaly(anoms['cl_frac'].data)
-        SW_anom_norm = normalise_anomaly(anoms['surface_SW_net'].data)
-        LW_anom_norm = normalise_anomaly(anoms['surface_LW_net'].data)
-        HL_anom_norm = normalise_anomaly(anoms['latent_heat'].data)
-        HS_anom_norm = normalise_anomaly(anoms['sensible_heat'].data)
-        melt_anom_norm = normalise_anomaly(anoms['land_snow_melt_flux'].data)
-        E_anom_norm = normalise_anomaly(anoms['E_tot'].data)
-        var_dict['Larsen_melt'] = np.mean(var_dict['land_snow_melt_amnt'][:, 40:140, 85:155].data, axis=(1, 2, 3))
-        var_dict['Fr'] = Fr
-        var_dict['mean_cloud'] = np.mean(var_dict['cl_frac'][:, 0, 40:140, 85:155].data, axis=(1, 2, 3))
-        # Calculate months
-        SAM_full = pd.read_csv(filepath + 'Daily_mean_SAM_index_1998-2017.csv', usecols=['SAM'], dtype=np.float64, header=0, na_values='*******')
-        SAM_full.index = pd.date_range('1998-01-01', '2017-12-31', freq='D')
-        months = [g for n, g in SAM_full.groupby(pd.TimeGrouper('M'))]
-        ENSO_full = iris.load_cube(filepath + 'inino34_daily.nc')
-        ENSO_full = pd.DataFrame(data=ENSO_full[6117:-732].data)  # subset to 3 months before 1998-01-01 to 2017-12-31
-        ENSO_full = ENSO_full.rolling(window=90).mean()  # first 90 days will be nans
-        ENSO_full = ENSO_full[90:]  # .values
-        ENSO_full.index = pd.date_range('1998-01-01', '2017-12-31', freq='D')
-        month_ENSO = [g for n, g in ENSO_full.groupby(pd.TimeGrouper('M'))]
-        #ENSO_full = ENSO_full[:7305, 0]
-        ENSO_seas = pd.Series()
-        SAM_seas = pd.Series()
-        jan = np.arange(0,240,12)
-        feb = np.arange(1,240,12)
-        mar = np.arange(2,240,12)
-        apr = np.arange(3,240,12)
-        may = np.arange(4,240,12)
-        jun = np.arange(5,240,12)
-        jul = np.arange(6,240,12)
-        aug = np.arange(7,240,12)
-        sep = np.arange(8,240,12)
-        oct = np.arange(9,240,12)
-        nov = np.arange(10,240,12)
-        dec = np.arange(11, 240, 12)
-        for yr in range(20):
-            if seas == 'DJF':
-                SAM_seas = pd.concat((SAM_seas, months[dec[yr]], months[jan[yr]],months[feb[yr]] ))
-                ENSO_seas =  pd.concat((ENSO_seas, month_ENSO[dec[yr]], month_ENSO[jan[yr]],month_ENSO[feb[yr]] ))
-            elif seas == 'MAM':
-                SAM_seas = pd.concat((SAM_seas,months[mar[yr]], months[apr[yr]], months[may[yr]]))
-                ENSO_seas = pd.concat((ENSO_seas, month_ENSO[mar[yr]], month_ENSO[apr[yr]], month_ENSO[may[yr]]))
-            elif seas == 'JJA':
-                SAM_seas = pd.concat((SAM_seas,months[jun[yr]], months[jul[yr]], months[aug[yr]]))
-                ENSO_seas = pd.concat((ENSO_seas, month_ENSO[jun[yr]], month_ENSO[jul[yr]], month_ENSO[aug[yr]]))
-            elif seas == 'SON':
-                SAM_seas = pd.concat((SAM_seas,months[sep[yr]], months[oct[yr]], months[nov[yr]]))
-                ENSO_seas = pd.concat((ENSO_seas, month_ENSO[sep[yr]], month_ENSO[oct[yr]], month_ENSO[nov[yr]]))
-        SAM_seas = SAM_seas.values[:, 1]
-        ENSO_seas = ENSO_seas.values[:,0]
-        var_dict['SAM'] = SAM_seas
-        var_dict['ENSO'] = ENSO_seas
-        print(' Calculating melt during each regime')
-        Larsen_melt = var_dict['land_snow_melt_amnt'].data[:-1, 0, 40:140, 85:155]
-        totm = np.copy(Larsen_melt)
-        # calculate total melt in one gridbox
-        melt_tot_per_gridbox = np.zeros(Larsen_melt.shape)
-        for t in range(Larsen_melt.shape[0]):
-            totm[lsm[40:140, 85:155] == 0.] = np.nan
-            for i in range(100):
-                for j in range(70):
-                    melt_tot_per_gridbox[t, i, j] = totm[t, i, j] * (4000 * 4000)  # total kg per gridbox
-        melt_tot = np.nansum(np.ma.masked_greater(melt_tot_per_gridbox, 3.20000006e+25), axis=0)  # remove sea values
-        melt_tot = np.nansum(melt_tot) / 10 ** 12  # integrated ice shelf melt amount (in Gt!)
-        melt_list = []
-        regime_list = []
-        for regime in ['blocked', 'flow-over', 'cloudy', 'clear' , 'melt25', 'melt75', 'LWP25', 'LWP75', 'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier', ]: # 'SIC_Weddell_L', 'SIC_Weddell_H',
-            print('\n\nPlotting synoptic composites during ' + regime + '...\n\n')
-            c_var, regime_mask = apply_composite_mask(regime, var_dict['MSLP'][:7305, 0, :, :].data)
-            cf_var, regime_mask = apply_composite_mask(regime, anoms['Tair_1p5m_daymax'][:7305, 0, :, :].data)  # try this with Tmax anomalies instead
-            u_var, regime_mask = apply_composite_mask(regime, var_dict['u_10m'][:7305, 0, :, :].data)
-            v_var, regime_mask = apply_composite_mask(regime, var_dict['v_10m'][:7305, 0, :, :].data)
-            plot_synop_composite(cf_var, c_var, u_var, v_var, regime, seas = seas)
-            print('\n\nPlotting SEB composites during ' + regime + '...\n\n')
-            SW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_SW_net'])
-            LW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_LW_net'])
-            HL_masked, regime_mask = apply_composite_mask(regime, anoms['latent_heat'])
-            HS_masked, regime_mask = apply_composite_mask(regime, anoms['sensible_heat'])
-            Etot_masked, regime_mask = apply_composite_mask(regime, anoms['Etot'])
-            melt_masked, regime_mask = apply_composite_mask(regime, anoms['land_snow_melt_flux'])
-            plot_SEB_composites(SW_masked, LW_masked, HL_masked, HS_masked, Etot_masked, melt_masked, regime, seas = seas)
-            melt_masked, regime_mask = apply_composite_mask(regime, anoms['land_snow_melt_flux'].data[:7305, 0, :, :])
-            plot_melt(melt_masked, regime, seas = seas)
-            regime_freq = (np.float(np.count_nonzero(regime_mask)) / 7305.) * 100
-            melt_regime = np.copy(melt_tot_per_gridbox)  # copy total
-            melt_regime[regime_mask == 0] = np.nan  # apply mask
-            melt_tot_regime = np.nansum(melt_regime, axis=0)  # sum over time
-            melt_tot_regime = np.ma.masked_greater(melt_tot_regime, 3e+20)  # mask sea values
-            melt_tot_regime = np.nansum(
-                melt_tot_regime) / 10 ** 12  # sum across entire ice shelf, and return in Gt meltwater
-            melt_tot_regime_pct = (melt_tot_regime / melt_tot) * 100  # find as percentage of melt
-            print(regime + ' associated with ' + str(melt_tot_regime_pct) + ' % of melting during ' + seas + ' in hindcast\n\n')
-            print(regime + ' occurs ' + str(regime_freq) + ' % of the time during ' + seas + ' in hindcast\n\n')
-            melt_list.append(melt_tot_regime_pct)
-            regime_list.append(regime_freq)
-        df = pd.DataFrame(
-            index=['blocked', 'flow-over', 'cloudy', 'clear' , 'melt25', 'melt75', 'LWP25', 'LWP75', 'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier',])
-        df['melt_pct'] = pd.Series(melt_list,
-                                   index=['blocked', 'flow-over', 'cloudy', 'clear' , 'melt25', 'melt75', 'LWP25', 'LWP75', 'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier',])
-        df['regime_freq'] = pd.Series(regime_list,
-                                      index=['blocked', 'flow-over', 'cloudy', 'clear' , 'melt25', 'melt75', 'LWP25', 'LWP75', 'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier',])
-        df.to_csv(filepath + seas + '_regime_melt_freq.csv')
-        plot_melt_composites(seas)
+    print('Normalising anomalies... \n\n')
+    var_dict['Larsen_melt'] = np.mean(var_dict['land_snow_melt_amnt'][:seas_len[seas]-1, 0, 40:135, 90:155].data, axis=(1, 2))
+    print('Calculating Froude number... \n\n')
+    Fr, h_hat = Froude_number(np.mean(var_dict['u_wind_full_profile'].data[:seas_len[seas]-1, 4:23, 75:175, 4:42], axis=(1, 2, 3)))
+    var_dict['Fr'] = Fr
+    var_dict['mean_cloud'] = np.mean(var_dict['cl_frac'][:seas_len[seas]-1, 0, 40:135, 90:155].data, axis=(1, 2))
+    var_dict['Larsen_LWP'] = np.mean(var_dict['total_column_liquid'][:seas_len[seas]-1, 0, 40:135, 90:155].data, axis = (1,2))
+    # Calculate months
+    SAM_full = pd.read_csv(filepath + 'Daily_mean_SAM_index_1998-2017.csv', usecols=['SAM'], dtype=np.float64, header=0, na_values='*******')
+    SAM_full.index = pd.date_range('1998-01-01', '2017-12-31', freq='D')
+    months = [g for n, g in SAM_full.groupby(pd.TimeGrouper('M'))]
+    ENSO_full = iris.load_cube(filepath + 'inino34_daily.nc')
+    ENSO_full = pd.DataFrame(data=ENSO_full[6117:-732].data)  # subset to 3 months before 1998-01-01 to 2017-12-31
+    ENSO_full = ENSO_full.rolling(window=90).mean()  # first 90 days will be nans
+    ENSO_full = ENSO_full[90:]  # .values
+    ENSO_full.index = pd.date_range('1998-01-01', '2017-12-31', freq='D')
+    month_ENSO = [g for n, g in ENSO_full.groupby(pd.TimeGrouper('M'))]
+    #ENSO_full = ENSO_full[:7305, 0]
+    ENSO_seas = pd.Series()
+    SAM_seas = pd.Series()
+    jan = np.arange(0,240,12)
+    feb = np.arange(1,240,12)
+    mar = np.arange(2,240,12)
+    apr = np.arange(3,240,12)
+    may = np.arange(4,240,12)
+    jun = np.arange(5,240,12)
+    jul = np.arange(6,240,12)
+    aug = np.arange(7,240,12)
+    sep = np.arange(8,240,12)
+    oct = np.arange(9,240,12)
+    nov = np.arange(10,240,12)
+    dec = np.arange(11, 240, 12)
+    for yr in range(20):
+        if seas == 'DJF':
+            SAM_seas = pd.concat((SAM_seas, months[dec[yr]], months[jan[yr]],months[feb[yr]] ))
+            ENSO_seas =  pd.concat((ENSO_seas, month_ENSO[dec[yr]], month_ENSO[jan[yr]],month_ENSO[feb[yr]] ))
+        elif seas == 'MAM':
+            SAM_seas = pd.concat((SAM_seas,months[mar[yr]], months[apr[yr]], months[may[yr]]))
+            ENSO_seas = pd.concat((ENSO_seas, month_ENSO[mar[yr]], month_ENSO[apr[yr]], month_ENSO[may[yr]]))
+        elif seas == 'JJA':
+            SAM_seas = pd.concat((SAM_seas,months[jun[yr]], months[jul[yr]], months[aug[yr]]))
+            ENSO_seas = pd.concat((ENSO_seas, month_ENSO[jun[yr]], month_ENSO[jul[yr]], month_ENSO[aug[yr]]))
+        elif seas == 'SON':
+            SAM_seas = pd.concat((SAM_seas,months[sep[yr]], months[oct[yr]], months[nov[yr]]))
+            ENSO_seas = pd.concat((ENSO_seas, month_ENSO[sep[yr]], month_ENSO[oct[yr]], month_ENSO[nov[yr]]))
+    SAM_seas = SAM_seas.values[:seas_lens[seas]-1, 1]
+    ENSO_seas = ENSO_seas.values[:seas_lens[seas]-1,0]
+    var_dict['SAM'] = SAM_seas
+    var_dict['ENSO'] = ENSO_seas
+    print(' Calculating melt during each regime')
+    Larsen_melt = var_dict['land_snow_melt_amnt'].data[:, 0, 40:135, 90:155]
+    totm = np.copy(Larsen_melt)
+    # calculate total melt in one gridbox
+    melt_tot_per_gridbox = np.zeros(Larsen_melt.shape)
+    for t in range(Larsen_melt.shape[0]):
+        totm[lsm[40:135, 90:155] == 0.] = np.nan
+        for i in range(95):
+            for j in range(65):
+                melt_tot_per_gridbox[t, i, j] = totm[t, i, j] * (4000 * 4000)  # total kg per gridbox
+    melt_tot = np.nansum(np.ma.masked_greater(melt_tot_per_gridbox, 3.20000006e+25), axis=0)  # remove sea values
+    melt_tot = np.nansum(melt_tot) / 10 ** 12  # integrated ice shelf melt amount (in Gt!)
+    melt_list = []
+    regime_list = []
+    for regime in [ 'blocked', 'flow-over', 'LWP25', 'LWP75', 'melt25', 'melt75', 'cloudy', 'clear' ,  ]: # 'SIC_Weddell_L', 'SIC_Weddell_H','SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier',
+        #print('\n\nPlotting synoptic composites during ' + regime + '...\n\n')
+        c_var, regime_mask = apply_composite_mask(regime, var_dict['MSLP'][:seas_lens[seas]-1, 0, :, :].data, var_dict)
+        cf_var, regime_mask = apply_composite_mask(regime, anoms['Tair_1p5m_daymax'][:seas_lens[seas]-1, 0, :, :].data, var_dict)# try this with Tmax anomalies instead
+        u_var, regime_mask = apply_composite_mask(regime, var_dict['u_10m'][:seas_lens[seas]-1, 0, :, :].data, var_dict)
+        v_var, regime_mask = apply_composite_mask(regime, var_dict['v_10m'][:seas_lens[seas]-1, 0, :, :].data, var_dict)
+        plot_synop_composite(cf_var, c_var, u_var, v_var, regime, seas = seas)
+        #print('\n\nPlotting SEB composites during ' + regime + '...\n\n')
+        SW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_SW_net'].data[:seas_lens[seas]-1, 0, :, :], var_dict)
+        LW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_LW_net'].data[:seas_lens[seas]-1, 0, :, :], var_dict)
+        HL_masked, regime_mask = apply_composite_mask(regime, anoms['latent_heat'].data[:seas_lens[seas]-1, 0, :, :], var_dict)
+        HS_masked, regime_mask = apply_composite_mask(regime, anoms['sensible_heat'].data[:seas_lens[seas]-1, 0, :, :], var_dict)
+        Etot_masked, regime_mask = apply_composite_mask(regime, anoms['E_tot'].data[:seas_lens[seas]-1, 0, :, :], var_dict)
+        melt_masked, regime_mask = apply_composite_mask(regime, anoms['land_snow_melt_flux'].data[:seas_lens[seas]-1, 0, :, :], var_dict)
+        plot_SEB_composites(SW_masked, LW_masked, HL_masked, HS_masked, Etot_masked, melt_masked, regime, seas = seas)
+        print('\n\nPlotting melt...')
+        plot_melt(melt_masked, regime, seas = seas)
+        print('\n\nDoing some maths...')
+        regime_freq = (np.float(np.count_nonzero(regime_mask)) / float(var_dict['v_10m'][:-1].shape[0])) * 100
+        melt_regime = np.copy(melt_tot_per_gridbox[:seas_lens[seas]-1])  # copy total
+        melt_regime[regime_mask == 0] = np.nan  # apply mask
+        melt_tot_regime = np.nansum(melt_regime, axis=0)  # sum over time
+        melt_tot_regime = np.ma.masked_greater(melt_tot_regime, 3e+20)  # mask sea values
+        melt_tot_regime = np.nansum( melt_tot_regime) / 10 ** 12  # sum across entire ice shelf, and return in Gt meltwater
+        melt_tot_regime_pct = (melt_tot_regime / melt_tot) * 100  # find as percentage of melt
+        print(regime + ' associated with ' + str(melt_tot_regime_pct) + ' % of melting during ' + seas + ' in hindcast\n\n')
+        print(regime + ' occurs ' + str(regime_freq) + ' % of the time during ' + seas + ' in hindcast\n\n')
+        melt_list.append(melt_tot_regime_pct)
+        regime_list.append(regime_freq)
+    df = pd.DataFrame(
+        index=['SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier', 'blocked', 'flow-over', 'LWP25', 'LWP75', 'melt25', 'melt75', 'cloudy', 'clear' ,  ])
+    df['melt_pct'] = pd.Series(melt_list, index=['SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier', 'blocked', 'flow-over', 'LWP25', 'LWP75', 'melt25', 'melt75', 'cloudy', 'clear' ,  ])
+    df['regime_freq'] = pd.Series(regime_list,index=[ 'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier', 'blocked', 'flow-over', 'LWP25', 'LWP75', 'melt25', 'melt75', 'cloudy', 'clear' , ])
+    df.to_csv(filepath + seas + '_regime_melt_freq.csv')
+        #plot_melt_composites(seas)
 
 seas_composite()
 
