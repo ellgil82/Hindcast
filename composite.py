@@ -330,7 +330,7 @@ print('Calculating Froude number... \n\n')
 Fr, h_hat = Froude_number(np.mean(var_dict['u_prof'].data[:, 4:23, 75:175, 4:42], axis = (1,2,3)))
 var_dict['Fr'] = Fr[:7305]
 
-def apply_composite_mask(regime, var, var_dict):
+def apply_composite_mask(regime, var, var_dict, anoms):
     regime_mask = np.zeros(var.shape[0])
     if regime == 'barrier':
         indicator_var = var_dict['v_10m'][:,0,:,:]
@@ -364,10 +364,10 @@ def apply_composite_mask(regime, var, var_dict):
     if regime == 'SAM-':
         indicator_var = var_dict['SAM']
         threshold = -1.36 # minus one standard deviation
-    if regime == 'ENSO+':
+    if regime == 'ENSO-': # El Nino = warm Pacific SSTs, = SOI -v
         indicator_var = var_dict['ENSO']
         threshold = 0.5
-    if regime == 'ENSO-':
+    if regime == 'ENSO+': # La Nina = cool Pacific SSTs = SOI +v
         indicator_var = var_dict['ENSO']
         threshold = -0.5
     if regime == 'cloudy':
@@ -399,10 +399,10 @@ def apply_composite_mask(regime, var, var_dict):
                 regime_mask[each_day] = 1.
             else:
                 regime_mask[each_day] = 0.
-        elif regime == 'SAM+' or regime == 'ENSO+' or regime == 'flow-over' or regime == 'cloudy' or regime == 'melt75' or regime == 'LWP75':
+        elif regime == 'SAM+' or regime == 'ENSO-' or regime == 'flow-over' or regime == 'cloudy' or regime == 'melt75' or regime == 'LWP75':
             regime_mask[indicator_var < threshold] = 0.
             regime_mask[indicator_var > threshold] = 1.
-        elif regime == 'SAM-' or regime == 'ENSO-' or regime == 'blocked' or regime == 'clear' or regime == 'melt25' or regime == 'LWP25':
+        elif regime == 'SAM-' or regime == 'ENSO+' or regime == 'blocked' or regime == 'clear' or regime == 'melt25' or regime == 'LWP25':
             regime_mask[indicator_var <  threshold] = 1.
             regime_mask[indicator_var >  threshold] = 0.
         else:
@@ -578,7 +578,7 @@ def plot_SEB_composites(var1, var2, var3, var4, var5, var6, regime, seas):
     plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/SEB_composite_subplot_' + regime + '_' + seas + '.eps')
     #plt.show()
 
-plot_SEB_composites(MAM_16_SWnetanom, MAM_16_LWnetanom, MAM_16_HLanom, MAM_16_HSanom, np.mean(MAM_16_E_totanom[:,0,:,:], axis = 0), MAM_16_Emeltanom, regime = 'MAM_16_anom_SEB_Apr_onwards', seas = '')
+#plot_SEB_composites(MAM_16_SWnetanom, MAM_16_LWnetanom, MAM_16_HLanom, MAM_16_HSanom, np.mean(MAM_16_E_totanom[:,0,:,:], axis = 0), MAM_16_Emeltanom, regime = 'MAM_16_anom_SEB_Apr_onwards', seas = '')
 
 
 #plot_SEB_composites( SW_anom_norm, LW_anom_norm, HL_anom_norm, HS_anom_norm, E_anom_norm, melt_anom_norm , 'barrier')
@@ -685,8 +685,8 @@ totm = np.copy(Larsen_melt)
 melt_tot_per_gridbox = np.zeros((7305, 100,70))
 for t in range(7305):
     totm[lsm[40:135, 90:155] == 0.] = np.nan
-    for i in range(100):
-        for j in range(70):
+    for i in range(95):
+        for j in range(65):
             melt_tot_per_gridbox[t, i, j] = totm[t, i, j] * (4000 * 4000)  # total kg per gridbox
 
 melt_tot = np.nansum(np.ma.masked_greater(melt_tot_per_gridbox, 3.20000006e+25), axis = 0) # remove sea values
@@ -697,18 +697,18 @@ def run_composites():
     regime_list = []
     for regime in ['blocked', 'flow-over', 'cloudy', 'clear', 'melt25', 'melt75', 'LWP25', 'LWP75', 'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier', ]: # 'SIC_Weddell_L', 'SIC_Weddell_H',
         print('\n\nPlotting synoptic composites during ' + regime + '...\n\n')
-        c_var, regime_mask = apply_composite_mask(regime, var_dict['MSLP'][:7305, 0, :, :].data)
-        cf_var, regime_mask = apply_composite_mask(regime, anoms['Tair_1p5m_daymax'][:7305, 0, :, :].data)  # try this with Tmax anomalies instead
-        u_var, regime_mask = apply_composite_mask(regime, var_dict['u_10m'][:7305, 0, :, :].data)
-        v_var, regime_mask = apply_composite_mask(regime, var_dict['v_10m'][:7305, 0, :, :].data)
+        c_var, regime_mask = apply_composite_mask(regime, var_dict['MSLP'][:7305, 0, :, :].data, var_dict, anoms)
+        cf_var, regime_mask = apply_composite_mask(regime, anoms['Tair_1p5m_daymax'][:7305, 0, :, :].data, var_dict, anoms)  # try this with Tmax anomalies instead
+        u_var, regime_mask = apply_composite_mask(regime, var_dict['u_10m'][:7305, 0, :, :].data, var_dict, anoms)
+        v_var, regime_mask = apply_composite_mask(regime, var_dict['v_10m'][:7305, 0, :, :].data, var_dict, anoms)
         plot_synop_composite(cf_var, c_var, u_var, v_var, regime, seas = 'ANN')
         print('\n\nPlotting SEB composites during ' + regime + '...\n\n')
-        SW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_SW_net'].data, var_dict)
-        LW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_LW_net'].data, var_dict)
-        HL_masked, regime_mask = apply_composite_mask(regime, anoms['latent_heat'].data, var_dict)
-        HS_masked, regime_mask = apply_composite_mask(regime, anoms['sensible_heat'].data, var_dict)
-        Etot_masked, regime_mask = apply_composite_mask(regime, anoms['Etot'].data, var_dict)
-        melt_masked, regime_mask = apply_composite_mask(regime, anoms['land_snow_melt_flux'][:7305,0,:,:].data, var_dict)
+        SW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_SW_net'].data, var_dict, anoms)
+        LW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_LW_net'].data, var_dict, anoms)
+        HL_masked, regime_mask = apply_composite_mask(regime, anoms['latent_heat'].data, var_dict, anoms)
+        HS_masked, regime_mask = apply_composite_mask(regime, anoms['sensible_heat'].data, var_dict, anoms)
+        Etot_masked, regime_mask = apply_composite_mask(regime, anoms['Etot'].data, var_dict, anoms)
+        melt_masked, regime_mask = apply_composite_mask(regime, anoms['land_snow_melt_flux'][:7305,0,:,:].data, var_dict, anoms)
         plot_SEB_composites(SW_masked, LW_masked, HL_masked, HS_masked, Etot_masked, melt_masked, regime, seas = 'ANN')
         plot_melt(melt_masked, regime, seas = 'ANN')
         regime_freq = (np.float(np.count_nonzero(regime_mask))/ 7305.)*100
@@ -726,23 +726,34 @@ def run_composites():
     df['melt_pct'] = pd.Series(melt_list, index = ['blocked', 'flow-over', 'cloudy', 'clear', 'melt25', 'melt75','LWP25', 'LWP75',  'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier'])
     df['regime_freq'] = pd.Series(regime_list, index = ['blocked', 'flow-over', 'cloudy', 'clear', 'melt25', 'melt75', 'LWP25', 'LWP75', 'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier'])
     df.to_csv(filepath + 'regime_melt_freq_ANN.csv')
+    plot_melt_composites(seas = 'ANN', anoms = anoms, var_dict = var_dict)
     print(regime_freq)
-    print(regime)
 
 run_composites()
 
-def plot_melt_composites(seas):
+regime = 'cloudy'
+c_var, regime_mask = apply_composite_mask(regime, var_dict['MSLP'][:7305, 0, :, :].data, var_dict, anoms)
+cf_var, regime_mask = apply_composite_mask(regime, var_dict['Tair_1p5m_daymax'][:7305, 0, :, :].data, var_dict, anoms)  # try this with Tmax anomalies instead
+u_var, regime_mask = apply_composite_mask(regime, var_dict['u_10m'][:7305, 0, :, :].data, var_dict, anoms)
+v_var, regime_mask = apply_composite_mask(regime, var_dict['v_10m'][:7305, 0, :, :].data, var_dict, anoms)
+plot_synop_composite(cf_var, c_var, u_var, v_var, regime, seas = 'ANN')
+
+
+
+
+def plot_melt_composites(seas, anoms, var_dict):
     fig, axs = plt.subplots(4,2, frameon=False, figsize=(11, 18))
     axs = axs.flatten()
     fig.patch.set_visible(False)
     lab_dict = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h'}
-    reg_list = ['SAM+', 'SAM-', 'ENSO+', 'ENSO-' 'blocked', 'flow-over', 'barrier', 'ASL', ]
+    reg_list = [ 'SAM-', 'SAM+', 'ENSO+', 'ENSO-', 'blocked', 'flow-over', 'barrier', 'ASL', ]
     for ax in [axs[1], axs[3], axs[5], axs[7]]:
         ax.yaxis.tick_right()
+        ax.axis('off')
     for i in range(8):
-        ax.text(0., 1.1, zorder=6, transform=ax.transAxes, s=lab_dict[i], fontsize=32, fontweight='bold', color='dimgrey')
-        melt, reg_mask = apply_composite_mask(reg_list[i], anoms['land_snow_melt_flux'].data[:seas_lens[seas]-1,0,:,:], var_dict)
+        melt, reg_mask = apply_composite_mask(reg_list[i], anoms['land_snow_melt_flux'].data[:seas_lens[seas]-1,0,:,:], var_dict, anoms)
         ax = axs[i]
+        ax.text(0., 1.1, zorder=6, transform=ax.transAxes, s=lab_dict[i], fontsize=32, fontweight='bold', color='dimgrey')
         ax.set_title(reg_list[i], color = 'dimgrey', fontsize = 34)
         ax.axis = 'off'
         ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0, tick1On=False, tick2On=False)
@@ -761,7 +772,7 @@ def plot_melt_composites(seas):
         plt.xticks(XTicks, XTickLabels)
         ax.set_xlim(PlotLonMin, PlotLonMax)
         ax.tick_params(which='both', pad=10, labelsize = 24, color = 'dimgrey')
-        YTicks = np.linspace(PlotLatMin, PlotLatMax, 4)
+        YTicks = np.linspace(PlotLatMin, PlotLatMax, 3)
         YTickLabels = [None] * len(YTicks)
         for i, YTick in enumerate(YTicks):
             if YTick < 0:
@@ -790,9 +801,9 @@ def plot_melt_composites(seas):
     plt.subplots_adjust(bottom = 0.22, top = 0.9, hspace = 0.3, wspace = 0.25, right = 0.87)
     plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Melt_flux_anomalies_all_regimes_' + seas + '.png')
     plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Melt_flux_anomalies_all_regimes_' + seas + '.eps')
-    plt.show()
+    #plt.show()
 
-#plot_melt_composites(seas = 'ANN')
+#plot_melt_composites(seas = 'MAM', anoms=anoms, var_dict = var_dict)
 
 ## Approach 1: Define specific large-scale regimes to evaluate:
 ##
@@ -975,14 +986,15 @@ print('\nCalculating seasonal correlations\n')
 # Do seasonal compositing
 
 def seas_composite():
-    for seas in [ 'SON', 'MAM', 'JJA', 'DJF',]:
+    for seas in [ 'JJA', 'DJF','SON', 'MAM', ]:
         var_dict = {}
         clims = {}
         anoms = {}
         seas_lens = {'DJF': 1805,
                      'MAM': 1840,
                      'JJA': 1840,
-                     'SON': 1820}
+                     'SON': 1820,
+                     'ANN': 7305}
         for i in [ 'Tair_1p5m', 'Tair_1p5m_daymax', 'MSLP', 'u_10m', 'v_10m', 'SIC', 'land_snow_melt_amnt','cl_frac', 'total_column_liquid','land_snow_melt_flux', 'surface_SW_net', 'surface_LW_net', 'latent_heat', 'sensible_heat', 'E_tot']:#
             print('\nLoading ' + seas + ' ' +  i)
             var_dict[i] = load_vars('1998-2017', i, seas = seas + '_')
@@ -1055,20 +1067,20 @@ def seas_composite():
         melt_tot = np.nansum(melt_tot) / 10 ** 12  # integrated ice shelf melt amount (in Gt!)
         melt_list = []
         regime_list = []
-        for regime in ['melt25', 'melt75', 'cloudy', 'clear' ,  ]: # 'SIC_Weddell_L', 'SIC_Weddell_H','SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier','blocked', 'flow-over', 'LWP25', 'LWP75',
+        for regime in ['SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier','blocked', 'flow-over', 'LWP25', 'LWP75','melt25', 'melt75', 'cloudy', 'clear' ,  ]: # 'SIC_Weddell_L', 'SIC_Weddell_H',
             print('\n\nPlotting synoptic composites during ' + regime + '...\n\n')
-            c_var, regime_mask = apply_composite_mask(regime, var_dict['MSLP'][:seas_lens[seas]-1, 0, :, :].data, var_dict)
-            cf_var, regime_mask = apply_composite_mask(regime, anoms['Tair_1p5m_daymax'][:seas_lens[seas]-1, 0, :, :].data, var_dict)# try this with Tmax anomalies instead
-            u_var, regime_mask = apply_composite_mask(regime, var_dict['u_10m'][:seas_lens[seas]-1, 0, :, :].data, var_dict)
-            v_var, regime_mask = apply_composite_mask(regime, var_dict['v_10m'][:seas_lens[seas]-1, 0, :, :].data, var_dict)
+            c_var, regime_mask = apply_composite_mask(regime, var_dict['MSLP'][:seas_lens[seas]-1, 0, :, :].data, var_dict, anoms)
+            cf_var, regime_mask = apply_composite_mask(regime, anoms['Tair_1p5m_daymax'][:seas_lens[seas]-1, 0, :, :].data, var_dict, anoms)# try this with Tmax anomalies instead
+            u_var, regime_mask = apply_composite_mask(regime, var_dict['u_10m'][:seas_lens[seas]-1, 0, :, :].data, var_dict, anoms)
+            v_var, regime_mask = apply_composite_mask(regime, var_dict['v_10m'][:seas_lens[seas]-1, 0, :, :].data, var_dict, anoms)
             plot_synop_composite(cf_var, c_var, u_var, v_var, regime, seas = seas)
             print('\n\nPlotting SEB composites during ' + regime + '...\n\n')
-            SW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_SW_net'].data[:seas_lens[seas]-1, 0, :, :], var_dict)
-            LW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_LW_net'].data[:seas_lens[seas]-1, 0, :, :], var_dict)
-            HL_masked, regime_mask = apply_composite_mask(regime, anoms['latent_heat'].data[:seas_lens[seas]-1, 0, :, :], var_dict)
-            HS_masked, regime_mask = apply_composite_mask(regime, anoms['sensible_heat'].data[:seas_lens[seas]-1, 0, :, :], var_dict)
-            Etot_masked, regime_mask = apply_composite_mask(regime, anoms['E_tot'].data[:seas_lens[seas]-1, 0, :, :], var_dict)
-            melt_masked, regime_mask = apply_composite_mask(regime, anoms['land_snow_melt_flux'].data[:seas_lens[seas]-1, 0, :, :], var_dict)
+            SW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_SW_net'].data[:seas_lens[seas]-1, 0, :, :], var_dict, anoms)
+            LW_masked, regime_mask = apply_composite_mask(regime, anoms['surface_LW_net'].data[:seas_lens[seas]-1, 0, :, :], var_dict, anoms)
+            HL_masked, regime_mask = apply_composite_mask(regime, anoms['latent_heat'].data[:seas_lens[seas]-1, 0, :, :], var_dict, anoms)
+            HS_masked, regime_mask = apply_composite_mask(regime, anoms['sensible_heat'].data[:seas_lens[seas]-1, 0, :, :], var_dict, anoms)
+            Etot_masked, regime_mask = apply_composite_mask(regime, anoms['E_tot'].data[:seas_lens[seas]-1, 0, :, :], var_dict, anoms)
+            melt_masked, regime_mask = apply_composite_mask(regime, anoms['land_snow_melt_flux'].data[:seas_lens[seas]-1, 0, :, :], var_dict, anoms)
             plot_SEB_composites(SW_masked, LW_masked, HL_masked, HS_masked, Etot_masked, melt_masked, regime, seas = seas)
             print('\n\nPlotting melt...')
             plot_melt(melt_masked, regime, seas = seas)
@@ -1088,7 +1100,78 @@ def seas_composite():
         df['melt_pct'] = pd.Series(melt_list, index=['SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier', 'blocked', 'flow-over', 'LWP25', 'LWP75', 'melt25', 'melt75', 'cloudy', 'clear' ,  ])
         df['regime_freq'] = pd.Series(regime_list,index=[ 'SAM+', 'SAM-', 'ENSO+', 'ENSO-', 'ASL', 'barrier', 'blocked', 'flow-over', 'LWP25', 'LWP75', 'melt25', 'melt75', 'cloudy', 'clear' , ])
         df.to_csv(filepath + seas + '_regime_melt_freq.csv')
-        plot_melt_composites(seas)
+        plot_melt_composites(seas, anoms = anoms, var_dict = var_dict)
 
 seas_composite()
 
+def plot_mean_temps(regime):
+    fig, axs = plt.subplots(2,2, frameon=False, figsize=(11, 12))
+    axs = axs.flatten()
+    fig.patch.set_visible(False)
+    for ax in [axs[1], axs[3]]:
+        ax.yaxis.tick_right()
+    for ax, seas in zip(axs, ['DJF', 'MAM', 'JJA', 'SON']):
+        print('\nFinding temps for ' + seas + ': \n')
+        ax.set_title(seas, color = 'dimgrey', fontsize = 34, pad = 20)
+        ax.axis = 'off'
+        ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0, tick1On=False, tick2On=False)
+        PlotLonMin = np.min(real_lon)
+        PlotLonMax = np.max(real_lon)
+        PlotLatMin = np.min(real_lat)
+        PlotLatMax = np.max(real_lat)
+        XTicks = np.linspace(PlotLonMin, PlotLonMax, 3)
+        XTickLabels = [None] * len(XTicks)
+        for i, XTick in enumerate(XTicks):
+            if XTick < 0:
+                XTickLabels[i] = '{:.0f}{:s}'.format(np.abs(XTick), '$^{\circ}$W')
+            else:
+                XTickLabels[i] = '{:.0f}{:s}'.format(np.abs(XTick), '$^{\circ}$E')#
+        plt.sca(ax)
+        plt.xticks(XTicks, XTickLabels)
+        ax.set_xlim(PlotLonMin, PlotLonMax)
+        ax.tick_params(which='both', pad=10, labelsize = 24, color = 'dimgrey')
+        YTicks = np.linspace(PlotLatMin, PlotLatMax, 4)
+        YTickLabels = [None] * len(YTicks)
+        for i, YTick in enumerate(YTicks):
+            if YTick < 0:
+                YTickLabels[i] = '{:.0f}{:s}'.format(np.abs(YTick), '$^{\circ}$S')
+            else:
+                YTickLabels[i] = '{:.0f}{:s}'.format(np.abs(YTick), '$^{\circ}$N')
+        plt.yticks(YTicks, YTickLabels)
+        ax.set_ylim(PlotLatMin, PlotLatMax)
+        ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0, tick1On=False,tick2On=False)
+        xlon, ylat = np.meshgrid(real_lon, real_lat)
+        var_dict = {}
+        anoms = {}
+        print('Loading data...\n')
+        if regime == 'cloudy':
+            for x in ['Tair_1p5m_daymax', 'cl_frac']:
+                var_dict[x] = load_vars('1998-2017', x, seas + '_')
+            var_dict['mean_cloud'] = np.mean(var_dict['cl_frac'][:, 0, 40:135, 90:155].data, axis = (1,2))
+        elif regime == 'flow-over':
+            for x in ['Tair_1p5m_daymax', 'u_wind_full_profile']:
+                var_dict[x] = load_vars('1998-2017', x, seas + '_')
+            var_dict['Fr'], h_hat = Froude_number(np.mean(var_dict['u_wind_full_profile'].data[:, 4:23, 75:175, 4:42], axis=(1, 2, 3)))
+        cf_var, regime_mask = apply_composite_mask(regime, var_dict['Tair_1p5m_daymax'][:, 0, :, :].data, var_dict, anoms)
+        Larsen_box = np.zeros((220, 220))
+        Larsen_box[40:135, 90:155] = 1.
+        print('Plotting...\n')
+        bwr_zero = shiftedColorMap(cmap=matplotlib.cm.bwr, min_val=-15., max_val=5., name='bwr_zero', var=cf_var[40:135, 90:155], start=0.15, stop=0.85)
+        c = ax.pcolormesh(xlon, ylat, np.ma.masked_where((Larsen_box == 0.), cf_var), cmap=bwr_zero, vmin=-15, vmax=5, zorder=1)  # latlon=True, transform=ccrs.PlateCarree(),
+        coast = ax.contour(xlon, ylat, lsm.data, levels=[0], colors='#222222', lw=2, latlon=True, zorder=2)
+        topog = ax.contour(xlon, ylat, orog.data, levels=[50], colors='#222222', linewidth=1.5, latlon=True, zorder=3)
+    print('Nearly there!\n')
+    CBarXTicks = [-15, -10, -5, 0, 5]  # CLevs[np.arange(0,len(CLevs),int(np.ceil(len(CLevs)/5.)))]
+    CBAxes = fig.add_axes([0.25, 0.2, 0.5, 0.015])
+    CBar = plt.colorbar(c, cax=CBAxes, orientation='horizontal', extend='both', ticks=CBarXTicks)
+    CBar.set_label('Mean daily maximum air \ntemperature during ' + regime + ' ($^{\circ}$C)' , fontsize=34, labelpad=10, color='dimgrey')
+    CBar.solids.set_edgecolor("face")
+    CBar.outline.set_edgecolor('dimgrey')
+    CBar.ax.tick_params(which='both', axis='both', labelsize=34, labelcolor='dimgrey', pad=10, size=0, tick1On=False,tick2On=False)
+    plt.subplots_adjust(bottom = 0.3, top = 0.94, hspace = 0.35, wspace = 0.25, right = 0.87)
+    plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Seasonal_mean_temps_' + regime + '.png')
+    plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Seasonal_mean_temps_' + regime + '.eps')
+    plt.show()
+
+plot_mean_temps(regime = 'cloudy')
+plot_mean_temps(regime = 'flow-over')
