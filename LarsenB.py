@@ -67,7 +67,7 @@ def load_vars():
         lsm = LSM[0, 0, :, :]
     except iris.exceptions.ConstraintMismatchError:
         print('Files not found')
-    var_list = [SWnet, LWnet, HL, HS, melt_amnt, melt_flux, Etot, lsm, orog, Ts, u, v, MSLP]
+    var_list = [SWnet, LWnet, HL, HS, melt_amnt, melt_flux, lsm, orog, Ts, u, v, MSLP]
     for i in var_list:
         real_lon, real_lat = rotate_data(i, np.ndim(i)-2, np.ndim(i)-1)
     vars_yr = {'melt_flux': melt_flux[:,0,:,:],  'melt_amnt': melt_amnt[:,0,:,:], 'HL': HL[:,0,:,:], 'HS': HS[:,0,:,:],
@@ -106,13 +106,12 @@ def totm_map(vars_yr):
 totm_map(var_dict)
 
 def plot_SEB_composites():
-    fig, axs = plt.subplots(2,2, frameon=False, figsize=(11, 14))
+    fig, axs = plt.subplots(2,2, frameon=False, figsize=(11, 13))
     axs = axs.flatten()
     fig.patch.set_visible(False)
-    var_list = [var_dict['HL'], var_dict['HS'], var_dict['Etot'], var_dict['melt_flux']]#var_dict['SWnet'], var_dict['LWnet'],
+    var_list = [var_dict['HL'], var_dict['HS'], iris.cube.Cube(var_dict['Etot']), var_dict['melt_flux']]#var_dict['SWnet'], var_dict['LWnet'],
     for i, j in zip(axs, [ 'H$_{L}$','H$_{S}$',  'E$_{tot}$', 'E$_{melt}$',]):#'SW$_{net}$', 'LW$_{net}$',
-        i.set_title(j, color = 'dimgrey', fontsize = 34)
-    plt.axis = 'off'
+        i.set_title(j, color = 'dimgrey', fontsize = 34, pad = 20)
     for ax in [axs[1], axs[3]]:#, axs[5]]:
         ax.yaxis.tick_right()
     for ax, var in zip(axs, var_list):
@@ -130,10 +129,11 @@ def plot_SEB_composites():
             else:
                 XTickLabels[i] = '{:.0f}{:s}'.format(np.abs(XTick), '$^{\circ}$E')#
         plt.sca(ax)
+        plt.axis = 'off'
         plt.xticks(XTicks, XTickLabels)
         ax.set_xlim(PlotLonMin, PlotLonMax)
         ax.tick_params(which='both', pad=10, labelsize = 24, color = 'dimgrey')
-        YTicks = np.linspace(PlotLatMin, PlotLatMax, 4)
+        YTicks = np.linspace(PlotLatMin, PlotLatMax, 3)
         YTickLabels = [None] * len(YTicks)
         for i, YTick in enumerate(YTicks):
             if YTick < 0:
@@ -145,21 +145,21 @@ def plot_SEB_composites():
         ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0, tick1On=False,
                        tick2On=False)
         xlon, ylat = np.meshgrid(var_dict['lon'][120:170], var_dict['lat'][130:175])
-        cf_var = np.mean(var.data[565:1450,130:175, 120:170], axis = (0))
+        cf_var = np.mean(var[565:1450,130:175, 120:170].data, axis = 0)
         #cf_var = normalize(cf_var)
         #bwr_zero = shiftedColorMap(cmap=matplotlib.cm.bwr, min_val=-50, max_val=50, name='bwr_zero', var=cf_var.data, start=0.15, stop=0.85)
         c = ax.pcolormesh(xlon, ylat, cf_var, vmin = -50, vmax =50, cmap='bwr')#, vmin=-6., vmax=3., zorder=1)  # latlon=True, transform=ccrs.PlateCarree(),
         coast = ax.contour(xlon, ylat, var_dict['lsm'].data[130:175, 120:170], levels=[0], colors='#222222', lw=2, latlon=True, zorder=2)
         topog = ax.contour(xlon, ylat, var_dict['orog'].data[130:175, 120:170], levels=[50], colors='#222222', linewidth=1.5, latlon=True, zorder=3)
     CBarXTicks = [-50, 0, 50]  # CLevs[np.arange(0,len(CLevs),int(np.ceil(len(CLevs)/5.)))]
-    CBAxes = fig.add_axes([0.2, 0.15, 0.6, 0.015])
+    CBAxes = fig.add_axes([0.25, 0.15, 0.5, 0.015])
     CBar = plt.colorbar(c, cax=CBAxes, orientation='horizontal', extend='both', ticks=CBarXTicks)
     CBar.set_label('Mean flux (W m$^{-2}$)', fontsize=34, labelpad=10, color='dimgrey')
     CBar.solids.set_edgecolor("face")
     CBar.outline.set_edgecolor('dimgrey')
     CBar.ax.tick_params(which='both', axis='both', labelsize=34, labelcolor='dimgrey', pad=10, size=0, tick1On=False, tick2On=False)
     CBar.outline.set_linewidth(2)
-    plt.subplots_adjust(bottom = 0.22, top = 0.9, hspace = 0.3, wspace = 0.25, right = 0.87)
+    plt.subplots_adjust(bottom = 0.22, top = 0.85, hspace = 0.3, wspace = 0.25, right = 0.87)
     plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/SEB_subplot_LarsenB_zoomed_norad.png')
     plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/SEB_subplot_LarsenB_zoomed_norad.eps')
     plt.show()
@@ -186,7 +186,7 @@ Tair_anom = Tair_daily - Tair_clim[:,0,:,:]
 
 
 def plot_synop_composite(cf_var, c_var, u_var, v_var):
-    fig = plt.figure(frameon=False, figsize=(10, 13))  # !!change figure dimensions when you have a larger model domain
+    fig = plt.figure(frameon=False, figsize=(9, 10))  # !!change figure dimensions when you have a larger model domain
     fig.patch.set_visible(False)
     ax = fig.add_subplot(111)#, projection=ccrs.PlateCarree())
     plt.axis = 'off'
@@ -194,7 +194,7 @@ def plot_synop_composite(cf_var, c_var, u_var, v_var):
     PlotLonMax = np.max(var_dict['lon'][120:170])
     PlotLatMin = np.min(var_dict['lat'][130:175])
     PlotLatMax = np.max(var_dict['lat'][130:175])
-    XTicks = np.linspace(PlotLonMin, PlotLonMax, 4)
+    XTicks = np.linspace(PlotLonMin, PlotLonMax, 3)
     XTickLabels = [None] * len(XTicks)
     for i, XTick in enumerate(XTicks):
         if XTick < 0:
@@ -204,7 +204,7 @@ def plot_synop_composite(cf_var, c_var, u_var, v_var):
     plt.xticks(XTicks, XTickLabels)
     ax.set_xlim(PlotLonMin, PlotLonMax)
     ax.tick_params(which='both', pad=10, labelsize = 34, color = 'dimgrey')
-    YTicks = np.linspace(PlotLatMin, PlotLatMax, 4)
+    YTicks = np.linspace(PlotLatMin, PlotLatMax, 3)
     YTickLabels = [None] * len(YTicks)
     for i, YTick in enumerate(YTicks):
         if YTick < 0:
