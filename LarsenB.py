@@ -1,5 +1,5 @@
 # Define where the script is running
-host = 'jasmin'
+host = 'pc'
 
 # Import packages
 import iris
@@ -20,6 +20,8 @@ if host == 'jasmin':
     sys.path.append('/gws/nopw/j04/bas_climate/users/ellgil82/scripts/Tools/')
 elif host == 'bsl':
     sys.path.append('/users/ellgil82/scripts/Tools/')
+elif host == 'pc':
+    sys.path.append('C:/Users/Ella/OneDrive - University of Reading/Scripts/Tools/')
 
 from tools import compose_date, compose_time, find_gridbox
 from find_gridbox import find_gridbox
@@ -38,6 +40,8 @@ if host == 'jasmin':
     filepath = '/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/LarsenB/'
 elif host == 'bsl':
     filepath = '/data/mac/ellgil82/hindcast/output/'
+elif host == 'pc':
+    filepath = '/Users/Ella/Downloads/'
 
 ## Load data
 def load_vars():

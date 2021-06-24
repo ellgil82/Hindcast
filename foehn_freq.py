@@ -5,6 +5,8 @@ from matplotlib import rcParams
 from matplotlib.lines import Line2D
 import scipy.stats
 import os
+import iris
+from datetime import time, datetime
 
 filepath = '/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/alloutput/'
 
@@ -125,35 +127,75 @@ def SAM_correl():
 
 stats_df, SAM = SAM_correl()
 
+
 stats_df.to_csv('Modelled_seasonal_SAM_correlations_inlet_v_ice_shelf.csv')
 
 ## Set up plotting options
 rcParams['font.family'] = 'sans-serif'
 rcParams['font.sans-serif'] = ['Segoe UI', 'Helvetica', 'Liberation sans', 'Tahoma', 'DejaVu Sans', 'Verdana']
 
+def plot_correls():
+	seas_lens = {'DJF': 720, 'MAM': 736, 'JJA': 736, 'SON': 728, 'ANN': 2920}
+	fig, axs = plt.subplots(figsize = (10,8))
+	axs.spines['top'].set_visible(False)
+	axs.spines['right'].set_visible(False)
+	plt.setp(axs.spines.values(), linewidth=2, color='dimgrey', )
+	#axs.set(adjustable='box-forced', aspect='equal')
+	axs.tick_params(axis='both', which='both', labelsize=24, width=2, length=8, color='dimgrey', labelcolor='dimgrey',
+					pad=10)
+	axs.yaxis.set_label_coords(-0.3, 0.5)
+	axs.set_xlabel('Modelled foehn frequency (%)' , size=24, color='dimgrey', rotation=0, labelpad=10)
+	axs.set_ylabel('Observed \nSAM index' , size=24, color='dimgrey', rotation=0, labelpad=10)
+	colours = ['blue', 'green', 'orange', 'magenta', 'k']
+	labs =["DJF", "MAM", "JJA", "SON", "ANN"]
+	for i,j in enumerate(labs):
+		axs.scatter((inlet_mod[j][:-2]/seas_lens[j])*100, SAM[j], color = colours[i], label = j)
+		slope, intercept, r2, p, sterr = scipy.stats.linregress((inlet_mod[j][:-2]/seas_lens[j])*100, SAM[j])
+		y_fit = slope*((inlet_mod[j][:-2]/seas_lens[j])*100) + intercept
+		if j == 'ANN':
+			axs.plot((inlet_mod[j][:-2] / seas_lens[j]) * 100, y_fit, linewidth = 3, color=colours[i])
+		else:
+			axs.plot((inlet_mod[j][:-2]/seas_lens[j])*100, y_fit, color=colours[i])
+	# Legend
+	lns = [Line2D([0], [0], color='blue', linewidth=4),
+		   Line2D([0], [0], color='green', linewidth=4),
+		   Line2D([0], [0], color='orange', linewidth=4),
+		   Line2D([0], [0], color='magenta', linewidth=4),
+		   Line2D([0], [0], color='k', linewidth=4)]
+	lgd = axs.legend(lns, labs, bbox_to_anchor=(0.65, 0.45), loc=2, fontsize=20)
+	frame = lgd.get_frame()
+	frame.set_facecolor('white')
+	for ln in lgd.get_texts():
+		plt.setp(ln, color='dimgrey')
+	lgd.get_frame().set_linewidth(0.0)
+	plt.subplots_adjust(left=0.3, bottom = 0.25)
+	plt.savefig(filepath + 'Scatter_foehn_v_SAM_seasonal.png')
+	plt.savefig(filepath +  'Scatter_foehn_v_SAM_seasonal.eps')
+	plt.show()
+
+plot_correls()
+
 def plot_foehn():
 	fig, ax = plt.subplots(1,1,figsize = (16,8))
 	plt.setp(ax.spines.values(), linewidth=2, color='dimgrey')
-	ax.plot(range(1998,2018), inlet_mod.foehn_frac.iloc[:-2], color = 'orange', linewidth = 2.5, label = 'Inlet stations, modelled')
-	ax.plot(range(1998,2018), iceshelf_mod.foehn_frac.iloc[:-2], color = 'blue', linewidth = 2.5, label = 'Ice shelf stations, modelled')
-	ax.set_ylabel('Annual foehn\nfrequency (%)', rotation = 0,fontsize=28, labelpad=20, color='dimgrey')
-	ax2  = ax.twinx()
-	plt.setp(ax2.spines.values(), linewidth=2, color='dimgrey')
-	ax2.plot(range(1998,2018), SAM.ANN, color = 'dimgrey', linewidth = 2.5, linestyle = ':')
-	ax2.set_ylabel('SAM \nindex', rotation = 0, fontsize=28, labelpad=20, color='dimgrey')
-	ax.set_ylim(10,20)
-	ax.set_yticks([10,15,20])
+	ax.plot(range(1998, 2018), inlet_mod.ANN.iloc[:-2], color='orange', linewidth=2.5, label='Inlet stations, modelled')
+	ax.plot(range(1998, 2018), iceshelf_mod.ANN.iloc[:-2], color='blue', linewidth=2.5,
+			label='Ice shelf stations, modelled')
+	ax.set_ylabel('Annual\nfoehn frequency', rotation=0, fontsize=28, labelpad=20, color='dimgrey')
+	ax2 = ax.twinx()
+	ax2.plot(range(1998, 2018), SAM.ANN, color='dimgrey', linewidth=2.5, linestyle=':')
+	ax2.set_ylabel('SAM \nindex', rotation=0, fontsize=28, labelpad=20, color='dimgrey')
 	for axs in ax, ax2:
 		axs.spines['top'].set_visible(False)
 		axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey')
-		axs.set_xlim(1998,2017)
+		axs.set_xlim(1998, 2017)
 		axs.set_xticks([1998, 2003, 2008, 2012, 2017])
-	#[l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
+	[l.set_visible(False) for (w, l) in enumerate(ax.yaxis.get_ticklabels()) if w % 2 != 0]
 	ax.yaxis.set_label_coords(-0.22, 0.5)
 	ax2.yaxis.set_label_coords(1.15, 0.62)
 	lns = [Line2D([0], [0], color='blue', linewidth=2.5),
 		   Line2D([0], [0], color='orange', linewidth=2.5),
-		   Line2D([0], [0], color='dimgrey', linewidth=2.5, linestyle = ':')]
+		   Line2D([0], [0], color='dimgrey', linewidth=2.5, linestyle=':')]
 	labs = ['Ice shelf stations, modelled', 'Inlet stations, modelled', 'SAM index']
 	lgd = ax.legend(lns, labs, bbox_to_anchor=(0.55, 1.1), loc=2, fontsize=20)
 	frame = lgd.get_frame()
@@ -162,8 +204,8 @@ def plot_foehn():
 		plt.setp(ln, color='dimgrey')
 	lgd.get_frame().set_linewidth(0.0)
 	plt.subplots_adjust(left = 0.24, right = 0.85)
-	plt.savefig('Annual_mean_modelled_foehn_frequency_vs_SAM.png', transparent = True)
-	plt.savefig('Annual_mean_modelled_foehn_frequency_vs_SAM.eps', transparent = True)
+	plt.savefig('Annual_mean_modelled_foehn_frequency_vs_SAM.png')
+	plt.savefig('Annual_mean_modelled_foehn_frequency_vs_SAM.eps')
 	plt.show()
 
 plot_foehn()
@@ -180,11 +222,11 @@ def foehn_time_srs():
 	ax.set_ylim(0,30)
 	ax2 = ax.twinx()
 	plt.setp(ax2.spines.values(), linewidth=2, color='dimgrey')
-	ax2.plot(range(80), time_srsSAM, color='dimgrey', linewidth=2.5, linestyle=':')
+	ax2.plot(range(80), time_srsSAM, color='dimgrey', linewidth=2.5, linestyle='--')
 	ax2.set_ylabel('SAM \nindex', rotation=0, fontsize=28, labelpad=20, color='dimgrey')
 	for axs in ax, ax2:
 		axs.spines['top'].set_visible(False)
-		axs.tick_params(axis='both', which='both', labelsize=24, tick1On=False, tick2On=False, labelcolor='dimgrey')
+		axs.tick_params(axis='both', which='both', labelsize=24, width = 2, length = 8, color = 'dimgrey', labelcolor='dimgrey')
 		axs.set_xlim(0,79)
 		labels = [item.get_text() for item in axs.get_xticklabels()]
 		labels[1] = '2000'
@@ -197,7 +239,7 @@ def foehn_time_srs():
 	ax2.yaxis.set_label_coords(1.15, 0.62)
 	lns = [Line2D([0], [0], color='blue', linewidth=2.5),
 		   Line2D([0], [0], color='orange', linewidth=2.5),
-		   Line2D([0], [0], color='dimgrey', linewidth=2.5, linestyle=':')]
+		   Line2D([0], [0], color='dimgrey', linewidth=2.5, linestyle='--')]
 	labs = ['Ice shelf stations, modelled', 'Inlet stations, modelled', 'SAM index']
 	lgd = ax.legend(lns, labs, bbox_to_anchor=(0.55, 1.1), loc=2, fontsize=20)
 	frame = lgd.get_frame()
@@ -206,8 +248,8 @@ def foehn_time_srs():
 		plt.setp(ln, color='dimgrey')
 	lgd.get_frame().set_linewidth(0.0)
 	plt.subplots_adjust(left=0.24, right=0.85)
-	plt.savefig('Total_time_srs_modelled_foehn_frequency_vs_SAM.png', transparent=True)
-	plt.savefig('Total_time_srs_modelled_foehn_frequency_vs_SAM.eps', transparent=True)
+	plt.savefig('Total_time_srs_modelled_foehn_frequency_vs_SAM.png')
+	plt.savefig('Total_time_srs_modelled_foehn_frequency_vs_SAM.eps')
 	plt.show()
 
 foehn_time_srs()
@@ -224,3 +266,95 @@ plt.plot(df.index, df.IWP, label= 'IWP')
 yr_mn = df.IWP.rolling(window = 7305, center = True).mean()
 plt.plot(yr_mn, label = 'yearly rolling mean')
 plt.show()
+
+def calc_seas_SAM(seas):
+	seas_lens = {'DJF': 1805,
+				 'MAM': 1840,
+				 'JJA': 1840,
+				 'SON': 1820}
+	SAM_full = pd.read_csv(filepath + 'Daily_mean_SAM_index_1998-2017.csv', usecols = ['SAM'], dtype = np.float64, header = 0, na_values = '*******')
+	SAM_full.index = pd.date_range('1998-01-01', '2017-12-31', freq = 'D')
+	months = [g for n, g in SAM_full.groupby(pd.TimeGrouper('M'))]
+	SAM_seas = pd.Series()
+	jan = np.arange(0,240,12)
+	feb = np.arange(1,240,12)
+	mar = np.arange(2,240,12)
+	apr = np.arange(3,240,12)
+	may = np.arange(4,240,12)
+	jun = np.arange(5,240,12)
+	jul = np.arange(6,240,12)
+	aug = np.arange(7,240,12)
+	sep = np.arange(8,240,12)
+	oct = np.arange(9,240,12)
+	nov = np.arange(10,240,12)
+	dec = np.arange(11, 240, 12)
+	for yr in range(20):
+		if seas == 'DJF':
+			SAM_seas = pd.concat((SAM_seas, months[dec[yr]], months[jan[yr]],months[feb[yr]] ))
+		elif seas == 'MAM':
+			SAM_seas = pd.concat((SAM_seas,months[mar[yr]], months[apr[yr]], months[may[yr]]))
+		elif seas == 'JJA':
+			SAM_seas = pd.concat((SAM_seas,months[jun[yr]], months[jul[yr]], months[aug[yr]]))
+		elif seas == 'SON':
+			SAM_seas = pd.concat((SAM_seas,months[sep[yr]], months[oct[yr]], months[nov[yr]]))
+	SAM_seas = SAM_seas.values[:seas_lens[seas]-1, 1]
+	return SAM_seas
+
+#Calculate daily mean SAM index seasonally
+MAM_SAM = calc_seas_SAM('MAM')
+DJF_SAM = calc_seas_SAM('DJF')
+SON_SAM = calc_seas_SAM('SON')
+JJA_SAM = calc_seas_SAM('JJA')
+
+LSM = iris.load_cube(filepath+'new_mask.nc')
+lsm = LSM[0,0,:,:]
+
+def calc_seas_FI(seas):
+	#calc seasonal foehn index
+	seas_FI = iris.load_cube(filepath + seas+ '_foehn_index.nc')
+	seas_FI = seas_FI[:, 40:135, 90:155]
+	lsm_3d = np.broadcast_to(lsm[ 40:135, 90:155].data, seas_FI.shape)
+	seas_FI.data[lsm_3d == 0.] = np.nan
+	mn_seas_FI = np.nanmean(seas_FI.data, axis = (1,2))
+	return mn_seas_FI
+
+MAM_FI = calc_seas_FI('MAM')
+DJF_FI = calc_seas_FI('DJF')
+JJA_FI = calc_seas_FI('JJA')
+SON_FI = calc_seas_FI('SON')
+
+#upsample SAM to get 3-hourly frequency by repeating daily totals
+SAM_3hr_MAM = np.repeat(MAM_SAM, 8)
+SAM_3hr_DJF = np.repeat(DJF_SAM, 8)
+SAM_3hr_SON = np.repeat(SON_SAM, 8)
+SAM_3hr_JJA = np.repeat(JJA_SAM, 8)
+
+plt.scatter(SAM_3hr_MAM[:MAM_FI.shape[0]], MAM_FI, color = 'green', label = 'MAM')
+plt.scatter(SAM_3hr_SON[:SON_FI.shape[0]], SON_FI, color = 'orange', label = 'SON')
+plt.scatter(SAM_3hr_JJA[:JJA_FI.shape[0]], JJA_FI, color = 'blue', label = 'JJA')
+plt.scatter(SAM_3hr_DJF[:DJF_FI.shape[0]], DJF_FI, color = 'magenta', label = 'DJF')
+plt.legend()
+plt.show()
+
+
+foehn_df = pd.DataFrame()
+foehn_df['Time'] = pd.date_range(datetime(1998,1,1,6,0,0), datetime(2017,12,31,15,0,0), freq = '3H')
+df = pd.read_csv(filepath + 'ceda_archive/Foehn_freq_AWS18.csv')
+freq = df['Unnamed: 0']
+ff = np.zeros((58436))
+ff[freq] = 1.
+foehn_df['AWS18_foehn_freq'] = ff
+df = pd.read_csv(filepath + 'ceda_archive/Foehn_freq_AWS14.csv')
+freq = df['Unnamed: 0']
+ff = np.zeros((58436))
+ff[freq] = 1.
+foehn_df['AWS14_foehn_freq'] = ff
+df = pd.read_csv(filepath + 'ceda_archive/Foehn_freq_AWS15.csv')
+freq = df['Unnamed: 0']
+ff = np.zeros((58436))
+ff[freq] = 1.
+foehn_df['AWS15_foehn_freq'] = ff
+foehn_df['sum_foehn'] = foehn_df.sum(axis = 1)
+foehn_df.index = foehn_df['Time']
+daily_foehn = foehn_df.resample('D').sum()
+daily_foehn.to_csv(filepath + 'daily_foehn_frequency.csv')

@@ -57,26 +57,26 @@ from scipy import stats
 
 # Set up filepath
 if host == 'jasmin':
-    filepath = '/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/alloutput/'
+    filepath = '/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/alloutput/ceda_archive/'
 elif host == 'bsl':
     filepath = '/data/mac/ellgil82/hindcast/output/'
 
 ## Load data
 def load_vars(year):
 	# Load surface variables
-	Tair = iris.load_cube( filepath + year+'_Tair_1p5m.nc', 'air_temperature')
-	Ts = iris.load_cube( filepath + year+'_Ts.nc', 'surface_temperature')
-	MSLP = iris.load_cube( filepath + year+'_MSLP.nc', 'air_pressure_at_sea_level')
-	sfc_P = iris.load_cube(filepath  + year + '_sfc_P.nc', 'surface_air_pressure')
-	FF_10m = iris.load_cube( filepath +year+'_FF_10m.nc', 'wind_speed')
-	RH = iris.load_cube(filepath  + year + '_RH_1p5m.nc', 'relative_humidity')
-	u = iris.load_cube(filepath  + year + '_u_10m.nc', 'x wind component (with respect to grid)')
-	v = iris.load_cube(filepath  + year + '_v_10m.nc', 'y wind component (with respect to grid)')
+	Tair = iris.load_cube( filepath + year+'_air_temperature_1p5m.nc', 'air_temperature')
+	Ts = iris.load_cube( filepath + year+'_surface_temperature.nc', 'surface_temperature')
+	MSLP = iris.load_cube( filepath + year+'_air_pressure_at_mean_sea_level.nc', 'air_pressure_at_sea_level')
+	#sfc_P = iris.load_cube(filepath  + year + '_air_pressure.nc', 'surface_air_pressure')
+	FF_10m = iris.load_cube( filepath +year+'_wind_speed_10m.nc', 'wind_speed')
+	RH = iris.load_cube(filepath  + year + '_relative_humidity_1p5m.nc', 'relative_humidity')
+	u = iris.load_cube(filepath  + year + '_eastward_wind_10m.nc', 'x wind component (with respect to grid)')
+	v = iris.load_cube(filepath  + year + '_northward_wind_10m.nc', 'y wind component (with respect to grid)')
 	# Load profiles
-	theta_prof = iris.load_cube(filepath + year + '_theta_full_profile.nc')
+	theta_prof = iris.load_cube(filepath + year + '_air_potential_temperature_model_levels.nc')
 	theta_prof = theta_prof[:,:40,:,:]
-	u_prof = iris.load_cube(filepath + year + '_u_wind_full_profile.nc')
-	v_prof = iris.load_cube(filepath + year + '_v_wind_full_profile.nc')
+	u_prof = iris.load_cube(filepath + year + '_eastward_wind_model_levels.nc')
+	v_prof = iris.load_cube(filepath + year + '_northward_wind_model_levels.nc')
 	v_prof = v_prof[:,:, 1:,:]
 	theta_pp = iris.load_cube(filepath + '*pe000.pp', 'air_potential_temperature')
 	theta_pp = theta_pp[:,:40,:,:]
@@ -121,6 +121,8 @@ def load_vars(year):
                'RH': RH[:,0,:,:], 'WD': WD[:,0,:,:], 'lon': real_lon, 'lat': real_lat, 'year': year}
 	prof_vars_yr = {'lon': real_lon, 'lat': real_lat, 'year': year, 'theta': theta_prof, 'u': u_prof, 'v': v_prof, 'altitude': theta_prof.coord('altitude'), 'orog': orog, 'lsm': LSM}
 	return surf_vars_yr, prof_vars_yr
+
+MAM_vars = load_vars(year = '1998-2017_MAM')
 
 def load_AWS(station, year):
 	## --------------------------------------------- SET UP VARIABLES ------------------------------------------------##
@@ -704,7 +706,6 @@ def seas_foehn(year_list, station):
 	seas_foehn_freq_mod.to_csv(filepath + 'Modelled_seasonal_foehn_frequency_' + station_dict[station] + '_' + year_list[0] + '_to_' + year_list[-1] + '.csv')
 	plt.show()
 
-
 #seas_foehn(year_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'], station = 'AWS14_SEB_2009-2017_norp.csv')
 #seas_foehn(year_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'], station = 'AWS17_SEB_2011-2015_norp.csv')
 #seas_foehn(year_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'], station = 'AWS18_SEB_2014-2017_norp.csv')
@@ -745,8 +746,13 @@ def foehn_freq_bar(station, yr_list):
 #foehn_freq_bar('iWS18_SEB_hourly_until_nov17.txt', yr_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007',  '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'])
 #foehn_freq_bar('AWS15_hourly_2009-2014.csv', yr_list = ['1998', '1999', '2000','2001', '2002', '2003', '2004', '2005', '2006', '2007',  '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017'])
 
+surf_var, prof_var = load_vars('MetUM_v11p1_Antarctic_Peninsula_4km_19980101-20171231')
 
-#surf_var, prof_var = load_vars('1998-2017')
+# trim for MAM 2016 only
+for k in surf_var.keys():
+	surf_var[k] = surf_var[k][53072:53807]
+for k in prof_var.keys():
+	prof_var[k] = prof_var[k][53072:53807]
 
 def spatial_foehn(calc):
 	if calc == 'yes':
@@ -801,11 +807,11 @@ def spatial_foehn(calc):
 	if calc == 'yes':
 		return total_foehn, foehn_pct, all_cond
 
-total_foehn, foehn, all_cond = spatial_foehn(calc = 'no')
-#total_foehn, foehn, all_cond = spatial_foehn(calc = 'yes')
+#total_foehn, foehn, all_cond = spatial_foehn(calc = 'no')
+total_foehn, foehn, all_cond = spatial_foehn(calc = 'yes')
 
-#fpct = iris.cube.Cube(data = foehn_pct, units = 'percent', long_name = 'foehn occurrence')
-#iris.save(fpct, filepath + 'foehn_pct.nc')
+fpct = iris.cube.Cube(data = foehn_pct, units = 'percent', long_name = 'foehn occurrence')
+iris.save(fpct, filepath + 'MAM_2016_foehn_pct.nc')
 
 
 

@@ -33,7 +33,7 @@ import metpy.calc
 
 # Set up filepath
 if host == 'jasmin':
-    filepath = '/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/alloutput/'
+    filepath = '/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/output/alloutput/ceda_archive/'
 elif host == 'bsl':
     filepath = '/data/mac/ellgil82/hindcast/output/'
 
@@ -76,7 +76,7 @@ def composite_plot(year_list):
     plot = 0
     for year in year_list:
         vars_yr = load_vars(year)
-        c = ax[plot].pcolormesh(np.ma.masked_where(vars_yr['orog'].data > 50, a = np.cumsum(vars_yr['melt_amnt'].data, axis = 0)[-1]), vmin = 0, vmax = 300)
+        c = ax[plot].pcolormesh(np.ma.masked_where(vars_yr['orog'].data > 50, a = np.cumsum(vars_yr['melt_amnt'].data, axis = 0)[-1]), vmin = 0, vmax = 300, cmap = 'Blues')
         ax[plot].contour(vars_yr['lsm'].data, colors = '#222222', lw = 2)
         ax[plot].contour(vars_yr['orog'].data, colors = '#222222', levels = [50])
         total_melt = total_melt + (np.cumsum(vars_yr['melt_amnt'].data, axis = 0)[-1])
@@ -105,7 +105,6 @@ def composite_plot(year_list):
     plt.show()
 
 #composite_plot(year_list)
-
 
 def total_melt(srs):
     total_melt = np.zeros((220, 220))
@@ -158,10 +157,6 @@ def totm_map(vars_yr, mean):
             plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/melt_cumulative_spatial.png',transparent=True)
             plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/melt_cumulative_spatial.eps',transparent=True)
     plt.show()
-
-
-
-
 
 #totm_map(full_srs, mean = 'yes')
 totm_map(full_srs, mean = 'no')
@@ -280,9 +275,15 @@ def chop_melt_yrs():
 # Find all days where melt occurs during at least one timestep
 
 #melt_duration = calc_melt_duration(full_srs['melt_amnt'].data)
+full_srs = {}
+orog = iris.load_cube(filepath + 'orog.nc')
+full_srs['orog'] = orog[0, 0, :, :]
+LSM = iris.load_cube(filepath + 'new_mask.nc')
+full_srs['lsm'] = LSM[0, 0, :, :]
+real_lon, real_lat = rotate_data(full_srs['lsm'], np.ndim(full_srs['lsm']) - 2, np.ndim(full_srs['lsm']) - 1)
 
 def composite_melt_seasons(days_or_amnt):
-    fig, ax = plt.subplots(6, 3, figsize=(8, 18))
+    fig, ax = plt.subplots(5, 4, figsize=(10, 18))
     CbAx = fig.add_axes([0.25, 0.1, 0.5, 0.01])
     ax = ax.flatten()
     for axs in ax:
@@ -292,38 +293,52 @@ def composite_melt_seasons(days_or_amnt):
         for file in os.listdir(filepath):
             if fnmatch.fnmatch(file, 'number_of_melt_days_during_??-??_melt_season.nc'):
                 file_list.append(file)
-        first_file = 'number_of_melt_days_during_99-00_melt_season.nc'
+        first_file = 'number_of_melt_days_during_98-99_melt_season.nc'
+        second_file = 'number_of_melt_days_during_99-00_melt_season.nc'
         vmax = 100
+        vmin = 25
     elif days_or_amnt == 'amnt':
         for file in os.listdir(filepath):
             if fnmatch.fnmatch(file, 'total_melt_amnt_during_??-??_melt_season.nc'):
                 file_list.append(file)
-        first_file = 'total_melt_amnt_during_99-00_melt_season.nc'
-        vmax = 500
+        first_file = 'total_melt_amnt_during_98-99_melt_season.nc'
+        second_file = 'total_melt_amnt_during_99-00_melt_season.nc'
+        vmax = 350
+        vmin = 0
     file_list = file_list[:-2]
-    file_list = [first_file] + file_list
+    file_list = [first_file] + [second_file] + file_list
     total_melt = np.ma.masked_where((full_srs['lsm']== 0.), a = np.zeros((220,220)))
     for i in range(len(file_list)):
 	Larsen_box = np.zeros((220,220))
 	Larsen_box[40:135,90:155] = 1.
         melt = iris.load_cube(filepath + file_list[i])
         #melt_masked = np.ma.masked_where((full_srs['orog'].data > 250), a =melt.data)
-        c = ax[i].pcolormesh(np.ma.masked_where((Larsen_box == 0.), melt.data), vmin = 0, vmax = vmax) #[0,:,:]), vmin = 0, vmax = 300)#, cmap = 'RdYlGn_r')
-        ax[i].contour(full_srs['lsm'].data, colors = '#222222', lw = 2)
-        ax[i].contour(full_srs['orog'].data, colors = '#222222', levels = [50])
-        ax[i].text(0.4, 1.1, s= file_list[i][23:25]+'/'+file_list[i][26:28], fontsize=24, color='dimgrey', transform=ax[i].transAxes)
+        c = ax[i].pcolormesh(np.ma.masked_where((Larsen_box[40:135, 90:155] == 0.), melt[40:135, 90:155].data), vmin = vmin, vmax = vmax, cmap='Blues') #[0,:,:]), vmin = 0, vmax = 300)#, cmap = 'RdYlGn_r')
+        ax[i].contour(full_srs['lsm'][40:135, 90:155].data, colors = '#222222', lw = 2)
+        ax[i].contour(full_srs['orog'][40:135, 90:155].data, colors = '#222222', levels = [50])
+        ax[i].contour(full_srs['orog'][40:135, 90:155].data, colors='dimgrey',  lw=0.1,  levels=[500, 1000, 1500])
+        if days_or_amnt == 'amnt':
+            ax[i].text(0.4, 1.1, s= file_list[i][23:25]+'/'+file_list[i][26:28], fontsize=24, color='dimgrey', transform=ax[i].transAxes)
+        else:
+            ax[i].text(0.4, 1.1, s=file_list[i][27:29] + '/' + file_list[i][30:32], fontsize=24, color='dimgrey',
+                       transform=ax[i].transAxes)
         total_melt = total_melt + np.ma.masked_where(full_srs['lsm'] == 0., a= melt.data)
-    c = ax[-1].pcolormesh(np.ma.masked_where((Larsen_box == 0.), total_melt/18.), vmin = 0, vmax = vmax)#, cmap = 'RdYlGn_r')np.ma.masked_where(full_srs['orog'].data > 250, a = np.ma.masked_where(full_srs['lsm'] == 0.,a =
-    ax[-1].contour(full_srs['lsm'].data, colors='#222222', lw=2)
-    ax[-1].contour(full_srs['orog'].data, colors='#222222', levels=[50])
-    #ax[-1].text(0., 1.1, s='20-year mean', fontsize=24, color='dimgrey', transform=ax[-1].transAxes)
+    c = ax[-1].pcolormesh(np.ma.masked_where((Larsen_box[40:135, 90:155] == 0.), total_melt[40:135, 90:155]/19.), vmin = vmin, vmax = vmax, cmap = 'Blues')#, cmap = 'RdYlGn_r')np.ma.masked_where(full_srs['orog'].data > 250, a = np.ma.masked_where(full_srs['lsm'] == 0.,a =
+    ax[-1].contour(full_srs['lsm'][40:135, 90:155].data, colors='#222222', lw=2)
+    ax[-1].contour(full_srs['orog'][40:135, 90:155].data, colors='#222222', levels=[50])
+    ax[-1].contour(full_srs['orog'][40:135, 90:155].data, colors='dimgrey',   lw=0.1,   levels = [500, 1000, 1500])
+    ax[-1].text(0.3, 1.1, s='Mean', fontsize=24, color='dimgrey', transform=ax[-1].transAxes)
     if days_or_amnt == 'days':
-        label = 'Annual melt_duration (days per year)'
-        ticks = [0, 50, 100]
+        label = 'Number of melt days per year'
+        ticks = [0, 25, 50, 75, 100]
+        fig_str = 'days'
+        extend = 'both'
     elif days_or_amnt == 'amnt':
         label = 'Annual cumulative surface melt amount (mm w.e.)'
-        ticks = [0, 250, 500]
-    cb = plt.colorbar(c, orientation = 'horizontal', cax = CbAx, ticks = ticks, extend = 'max')
+        ticks = [0, 200, 350, 500]
+        fig_str = 'amnt'
+        extend = 'max'
+    cb = plt.colorbar(c, orientation = 'horizontal', cax = CbAx, ticks = ticks, extend = extend)
     cb.solids.set_edgecolor("face")
     cb.outline.set_edgecolor('dimgrey')
     cb.ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0, tick1On=False, tick2On=False)
@@ -335,31 +350,56 @@ def composite_melt_seasons(days_or_amnt):
         plt.savefig('/users/ellgil82/figures/Hindcast/SMB/melt_all_years.png', transparent = True)
         plt.savefig('/users/ellgil82/figures/Hindcast/SMB/melt_all_years.eps', transparent = True)
     elif host == 'jasmin':
-        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Total_melt_amnt_per_year_viridis.png', transparent = True)
-        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Total_melt_amnt_per_year_viridis.eps', transparent = True)
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Total_melt_'+fig_str+'_per_year_blue.png', transparent = True)
+        plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Total_melt_'+fig_str+'_per_year_blue.eps', transparent = True)
     plt.show()
     return total_melt
 
-total_melt = composite_melt_seasons('amnt')
+#total_melt = composite_melt_seasons('amnt')
+total_melt = composite_melt_seasons('days')
 
 def mean_melt_dur(total_melt, vars_yr):
     fig, ax = plt.subplots(figsize=(8, 8))
     CbAx = fig.add_axes([0.25, 0.2, 0.5, 0.025])
-    ax.axis('off')
-    c = ax.pcolormesh(np.ma.masked_where(vars_yr['orog'].data > 50, a= total_melt/18.), vmin = 0,vmax = 100, cmap ='RdYlGn_r')
-    xticks = [0, 50, 100]
+    plt.setp(ax.spines.values(), linewidth=0, color='dimgrey')
+    ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0)
+    PlotLonMin = np.min(real_lon[90:155])
+    PlotLonMax = np.max(real_lon[90:155])
+    PlotLatMin = np.min(real_lat[40:135])
+    PlotLatMax = np.max(real_lat[40:135])
+    XTicks = np.linspace(PlotLonMin, PlotLonMax, 4)
+    XTickLabels = [None] * len(XTicks)
+    for i, XTick in enumerate(XTicks):
+        if XTick < 0:
+            XTickLabels[i] = '{:.0f}{:s}'.format(np.abs(XTick), '$^{\circ}$W')
+        else:
+            XTickLabels[i] = '{:.0f}{:s}'.format(np.abs(XTick), '$^{\circ}$E')
+    ax.set_xticks(XTicks, XTickLabels)
+    ax.set_xlim(PlotLonMin, PlotLonMax)
+    YTicks = np.linspace(PlotLatMin, PlotLatMax, 4)
+    YTickLabels = [None] * len(YTicks)
+    for i, YTick in enumerate(YTicks):
+        if YTick < 0:
+            YTickLabels[i] = '{:.0f}{:s}'.format(np.abs(YTick), '$^{\circ}$S')
+        else:
+            YTickLabels[i] = '{:.0f}{:s}'.format(np.abs(YTick), '$^{\circ}$N')
+    plt.yticks(YTicks, YTickLabels)
+    ax.set_ylim(PlotLatMin, PlotLatMax)
+    xlon, ylat = np.meshgrid(real_lon[90:155], real_lat[40:135])
     cb_lab = 'Annual mean melt duration(days per year)'
-    ax.contour(vars_yr['lsm'].data, colors='#222222')
-    ax.contour(vars_yr['orog'].data, colors='#222222', levels=[50])
+    c = ax.pcolormesh(xlon, ylat, (total_melt[40:135, 90:155] / 19.), vmin=0, vmax=100, cmap='RdYlGn_r')
+    ax.contour(xlon,ylat,vars_yr['lsm'][40:135, 90:155].data, colors='#222222')
+    ax.contour(xlon,ylat,vars_yr['orog'][40:135, 90:155].data, colors='#222222', levels=[50])
+    ax.contour(xlon,ylat,vars_yr['orog'][40:135, 90:155].data, colors='lightgrey', levels=[500,1000,1500], lw = 0.1)
     plt.colorbar(c, cax = CbAx, orientation = 'horizontal')
-    cb = plt.colorbar(c, orientation='horizontal', cax=CbAx, ticks=xticks, extend = "max")
+    cb = plt.colorbar(c, orientation='horizontal', cax=CbAx, ticks=[0,50,100], extend = "max")
     cb.solids.set_edgecolor("face")
     cb.outline.set_edgecolor('dimgrey')
     cb.ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=0, tick1On=False,tick2On=False)
     cb.outline.set_linewidth(2)
     cb.ax.xaxis.set_ticks_position('bottom')
     cb.set_label(cb_lab, fontsize=24, color='dimgrey', labelpad=30)
-    plt.subplots_adjust(left=0.05, right=0.95, top=0.92, bottom=0.3, hspace=0.3, wspace=0.05)
+    plt.subplots_adjust(left=0.15, right=0.95, top=0.92, bottom=0.3, hspace=0.3, wspace=0.05)
     if host == 'jasmin':
         plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/melt_duration_cf_Luckman14_&_Bevan18.png',transparent=True)
         plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/melt_duration_cf_Luckman14_&_Bevan18.eps',transparent=True)
@@ -368,25 +408,45 @@ def mean_melt_dur(total_melt, vars_yr):
 mean_melt_dur(total_melt, full_srs)
 
 def melt_table():
-    df = pd.DataFrame(index = ['Annual ice shelf integrated melt', 'Maximum meltwater production'])
+    df = pd.DataFrame(index = ['Annual ice shelf integrated melt', 'Maximum meltwater production', 'Minimum meltwater production'])
     file_list = []
     for file in os.listdir(filepath):
         if fnmatch.fnmatch(file, 'total_melt_amnt_during_??-??_melt_season.nc'):
             file_list.append(file)
-    first_file = 'total_melt_amnt_during_99-00_melt_season.nc'
+    first_file = ['total_melt_amnt_during_98-99_melt_season.nc', 'total_melt_amnt_during_99-00_melt_season.nc']
     file_list = file_list[:-2]
-    file_list = [first_file] + file_list
+    file_list = first_file + file_list
     for file in file_list:
         melt = iris.load_cube(filepath + file)
-        mn_melt = np.mean(melt.data[40:140, 85:155]) # Larsen C average
-        max_melt = np.max(melt.data[40:140, 85:155]) # Larsen C average
-        df[file[23:28]] = [mn_melt, max_melt]
+        mn_melt = np.mean(melt.data[40:135, 90:155]) # Larsen C average
+        max_melt = np.max(melt.data[40:135, 90:155]) # Larsen C average
+        min_melt = np.min(melt.data[40:135, 90:155])
+        df[file[23:28]] = [mn_melt, max_melt, min_melt]
     df = df.transpose()
     #print(df)
     df.to_csv(filepath + 'Melt_season_integrated_ice_shelf_totals.csv')
     return df
 
-melt_table()
+df = melt_table()
+
+def boxplot():
+    fig, ax = plt.subplots(figsize = (14, 6))
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.setp(ax.spines.values(), linewidth=3, color='dimgrey')
+    labels=['98/99', '99/00', '00/01', '01/02', '02/03', '03/04', '04/05', '05/06', '06/07', '07/08', '08/09', '09/10',
+                '10/11', '11/12', '12/113', '13/14', '14/15', '15/16', '16/17']
+    ax.boxplot(df, labels=labels, patch_artist=True, medianprops=dict(color="white",linewidth=2), boxprops=dict(color='k', lw=2), meanline=True)
+    [l.set_visible(False) for (i, l) in enumerate(ax.xaxis.get_ticklabels()) if i % 3 != 0]
+    ax.yaxis.set_label_coords(-0.22, 0.4)
+    ax.set_ylabel('Meltwater \nproduction \n(mm w.e. yr$^{-1}$)', rotation=0, fontname='SegoeUI semibold', color='dimgrey', fontsize=24, labelpad=80)
+    ax.tick_params(which='both', axis='both', labelsize=24, labelcolor='dimgrey', pad=10, size=8, color = 'dimgrey', width = 3,  tick2On=False)
+    plt.subplots_adjust(left=0.25, right = 0.95, top = 0.95, bottom = 0.15)
+    plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Total_melt_Larsen_C_boxplot.png')
+    plt.savefig('/gws/nopw/j04/bas_climate/users/ellgil82/hindcast/figures/Total_melt_Larsen_C_boxplot.eps')
+    plt.show()
+
+boxplot()
 
 def plot_melt_trends():
     fig, ax = plt.subplots(figsize = (10, 6))
